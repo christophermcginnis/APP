@@ -1,0 +1,17 @@
+{
+  "name": "@circlecast/api-types",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "types": "index.ts",
+  "exports": {
+    ".": {
+      "types": "./index.ts"
+    }
+  },
+  "dependencies": {
+    "@circlecast/core": "workspace:*",
+    "@trpc/server": "^10.45.2",
+    "zod": "^3.23.8"
+  }
+}
