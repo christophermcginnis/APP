@@ -115,6 +115,7 @@ const profileRouter = router({
         firstName: z.string(),
         lastName: z.string(),
         handle: z.string(),
+        password: z.string().min(8),
         birthdate: z.string().datetime().optional(),
         headline: z.string().optional()
       })
