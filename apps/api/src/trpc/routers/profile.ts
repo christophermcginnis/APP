@@ -1,10 +1,17 @@
+import { randomUUID } from "node:crypto";
+
 import {
+  creatorNotificationSchema,
   creatorProfileSchema,
   creatorSummarySchema,
   profileOverviewSchema,
   profileSearchResultSchema
 } from "@circlecast/core";
-import type { CreatorProfile } from "@circlecast/core";
+import type {
+  CreatorNotification,
+  CreatorProfile,
+  CreatorSummary
+} from "@circlecast/core";
 import { TRPCError } from "@trpc/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
@@ -16,6 +23,7 @@ import {
   profileOverviewMock
 } from "../../data/profile.js";
 import { publicProcedure, router } from "../trpc.js";
+import type { TrpcContext } from "../context.js";
 
 type CircleWithDetails = Prisma.CircleGetPayload<{
   include: { companionTasks: true; sessions: true };
@@ -155,6 +163,133 @@ function findMockCreatorProfile(handle: string): CreatorProfile | undefined {
 
 const creatorFollowers = new Map<string, Set<string>>();
 
+const followerFollowing = new Map<string, Set<string>>();
+
+type StoredNotification = {
+  id: string;
+  type: "follow";
+  createdAt: Date;
+  follower: {
+    id: string;
+    name: string;
+    handle?: string | null;
+    avatarUrl?: string | null;
+  };
+};
+
+const creatorNotifications = new Map<string, StoredNotification[]>();
+
+const creatorSummaryLookup = new Map(
+  followingCreatorsMock.map((creator) => [creator.handle.toLowerCase(), creator])
+);
+
+function getOrCreateFollowedHandles(followerId: string) {
+  let handles = followerFollowing.get(followerId);
+  if (handles) {
+    return handles;
+  }
+
+  handles = new Set<string>();
+  for (const [handle, followers] of creatorFollowers.entries()) {
+    if (followers.has(followerId)) {
+      handles.add(handle);
+    }
+  }
+
+  followerFollowing.set(followerId, handles);
+  return handles;
+}
+
+async function resolveCreatorSummaries(
+  handles: Iterable<string>,
+  ctx: Pick<TrpcContext, "prisma">
+): Promise<CreatorSummary[]> {
+  const summaries: CreatorSummary[] = [];
+
+  for (const handleKey of handles) {
+    const normalized = handleKey.toLowerCase();
+    const mockSummary = creatorSummaryLookup.get(normalized);
+
+    if (mockSummary) {
+      const additionalFollowers = creatorFollowers.get(normalized)?.size ?? 0;
+      summaries.push({
+        ...mockSummary,
+        followers: mockSummary.followers + additionalFollowers
+      });
+      continue;
+    }
+
+    const user = await ctx.prisma.user.findFirst({
+      where: {
+        handle: {
+          equals: normalized,
+          mode: "insensitive"
+        }
+      },
+      include: {
+        circles: true
+      }
+    });
+
+    if (!user || !user.handle) {
+      continue;
+    }
+
+    const circles = user.circles ?? [];
+    const primaryCircle = circles[0];
+    const focusArea = primaryCircle?.focusArea ?? "CircleCast community building";
+    const followerCount = creatorFollowers.get(normalized)?.size ?? 0;
+    const displayName = user.name?.trim() && user.name.trim().length > 0 ? user.name.trim() : `@${user.handle}`;
+
+    const status = primaryCircle
+      ? primaryCircle.companionTone && primaryCircle.companionTone.length > 0
+        ? primaryCircle.companionTone
+        : `Next session cadence: ${primaryCircle.cadence}`
+      : "Preparing new circle experiences.";
+
+    const summary: CreatorSummary = {
+      handle: user.handle,
+      name: displayName,
+      avatarUrl: user.image ?? undefined,
+      headline:
+        user.bio && user.bio.length > 0
+          ? user.bio
+          : `${displayName} is growing calm creator circles on CircleCast.`,
+      focus: focusArea,
+      circles: circles.length,
+      followers: followerCount,
+      status
+    };
+
+    summaries.push(summary);
+  }
+
+  return summaries;
+}
+
+function consumeNotificationsForHandle(handle: string): CreatorNotification[] {
+  const key = handle.toLowerCase();
+  const stored = creatorNotifications.get(key);
+
+  if (!stored || stored.length === 0) {
+    return [];
+  }
+
+  creatorNotifications.set(key, []);
+
+  return stored.map((notification) => ({
+    id: notification.id,
+    type: "follow" as const,
+    createdAt: notification.createdAt.toISOString(),
+    follower: {
+      id: notification.follower.id,
+      name: notification.follower.name,
+      handle: notification.follower.handle ?? undefined,
+      avatarUrl: notification.follower.avatarUrl ?? undefined
+    }
+  }));
+}
+
 function getIsFollowing(handle: string, viewerId?: string) {
   if (!viewerId) {
     return false;
@@ -250,11 +385,36 @@ export const profileRouter = router({
         { label: "Companion tasks", value: String(allTasks.length) }
       ];
 
+      const followingHandles = getOrCreateFollowedHandles(input.userId);
+      if (followingHandles.size > 0) {
+        base.following = await resolveCreatorSummaries(followingHandles, ctx);
+      } else {
+        base.following = [];
+      }
+
       return base;
     }),
   following: publicProcedure
+    .input(
+      z
+        .object({
+          followerId: z.string().uuid()
+        })
+        .optional()
+    )
     .output(z.array(creatorSummarySchema))
-    .query(() => followingCreatorsMock),
+    .query(async ({ ctx, input }) => {
+      if (!input?.followerId) {
+        return followingCreatorsMock;
+      }
+
+      const handles = getOrCreateFollowedHandles(input.followerId);
+      if (handles.size === 0) {
+        return [];
+      }
+
+      return resolveCreatorSummaries(handles, ctx);
+    }),
   followCreator: publicProcedure
     .input(
       z.object({
@@ -269,7 +429,7 @@ export const profileRouter = router({
         isFollowing: z.boolean()
       })
     )
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const normalizedHandle = input.handle.trim();
       const key = normalizedHandle.toLowerCase();
       const followerId = input.followerId;
@@ -285,12 +445,79 @@ export const profileRouter = router({
 
       creatorFollowers.set(key, followers);
 
+      const followingHandles = getOrCreateFollowedHandles(followerId);
+      if (nextState) {
+        followingHandles.add(key);
+      } else {
+        followingHandles.delete(key);
+      }
+
+      if (nextState && !currentlyFollowing) {
+        const follower = await ctx.prisma.user.findUnique({
+          where: { id: followerId },
+          select: { id: true, name: true, handle: true, image: true }
+        });
+
+        const followerName = follower?.name?.trim() && follower.name.trim().length > 0
+          ? follower.name.trim()
+          : follower?.handle?.trim() && follower.handle.trim().length > 0
+            ? follower.handle.trim()
+            : "A CircleCast creator";
+
+        const notification: StoredNotification = {
+          id: randomUUID(),
+          type: "follow",
+          createdAt: new Date(),
+          follower: {
+            id: followerId,
+            name: followerName,
+            handle: follower?.handle ?? null,
+            avatarUrl: follower?.image ?? null
+          }
+        };
+
+        const existingNotifications = creatorNotifications.get(key) ?? [];
+        creatorNotifications.set(key, [...existingNotifications, notification]);
+      }
+
       await new Promise((resolve) => setTimeout(resolve, 150));
 
       return {
         handle: normalizedHandle,
         isFollowing: followers.has(followerId)
       };
+    }),
+  notifications: publicProcedure
+    .input(
+      z
+        .object({
+          userId: z.string().uuid().optional(),
+          handle: z.string().optional()
+        })
+        .optional()
+    )
+    .output(z.array(creatorNotificationSchema))
+    .query(async ({ ctx, input }) => {
+      if (!input) {
+        return [];
+      }
+
+      let targetHandle = input.handle?.trim();
+
+      if (!targetHandle && input.userId) {
+        const user = await ctx.prisma.user.findUnique({
+          where: { id: input.userId },
+          select: { handle: true }
+        });
+
+        targetHandle = user?.handle ?? undefined;
+      }
+
+      if (!targetHandle) {
+        return [];
+      }
+
+      return consumeNotificationsForHandle(targetHandle);
     }),
   search: publicProcedure
     .input(

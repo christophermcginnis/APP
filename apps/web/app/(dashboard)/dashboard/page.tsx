@@ -1,7 +1,7 @@
 "use client";
 
 import type { CreatorSummary } from "@circlecast/core";
-import { Loader2, Mic, Sparkles, Users } from "lucide-react";
+import { Bell, Loader2, Mic, Sparkles, Users } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useMemo } from "react";
@@ -9,6 +9,7 @@ import { ProfileHighlights } from "@/components/profile/profile-highlights";
 import { ProfileStats } from "@/components/profile/profile-stats";
 import { useCompanionTasks } from "@/hooks/use-companion-tasks";
 import { useCircles } from "@/hooks/use-circles";
+import { useCreatorNotifications } from "@/hooks/use-creator-notifications";
 import { useFollowingCreators } from "@/hooks/use-following-creators";
 import { useProfileOverview } from "@/hooks/use-profile-overview";
 import { useCurrentUser } from "@/hooks/use-current-user";
@@ -78,11 +79,16 @@ export default function DashboardFeedPage() {
     error: followingErrorObj,
     refetch: refetchFollowing
   } = useFollowingCreators();
+  const {
+    data: notificationsData = [],
+    isFetching: notificationsFetching
+  } = useCreatorNotifications();
 
   const profile = profileData ?? profileOverviewMock;
   const circles = circlesData?.circles ?? [];
   const tasks = tasksData?.tasks ?? [];
   const following: CreatorSummary[] = followingData ?? profile.following;
+  const notifications = notificationsData;
 
   const feedItems = useMemo<FeedItem[]>(() => {
     const taskEntries = tasks.map((task) => ({
@@ -176,7 +182,46 @@ export default function DashboardFeedPage() {
         </div>
       ) : null}
 
-  <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
+      {notifications.length ? (
+        <section className="rounded-4xl border border-white/10 bg-gradient-to-br from-indigo-500/25 via-sky-500/15 to-emerald-500/10 p-6 shadow-[0_18px_60px_rgba(59,130,246,0.35)]">
+          <div className="flex items-center justify-between">
+            <h2 className="flex items-center gap-2 text-lg font-semibold text-white">
+              <Bell className="h-4 w-4" />
+              Notifications
+            </h2>
+            {notificationsFetching ? (
+              <span className="inline-flex items-center gap-2 text-xs text-white/70">
+                <Loader2 className="h-3 w-3 animate-spin" />
+                Updating
+              </span>
+            ) : null}
+          </div>
+
+          <ul className="mt-4 space-y-3 text-sm text-white/80">
+            {notifications.map((notification) => (
+              <li
+                key={notification.id}
+                className="flex items-center justify-between rounded-3xl border border-white/15 bg-white/10 px-4 py-3"
+              >
+                <div>
+                  <span className="font-semibold text-white">{notification.follower.name}</span>{" "}
+                  has followed you.
+                </div>
+                {notification.follower.handle ? (
+                  <Link
+                    href={`/creator/${notification.follower.handle}`}
+                    className="text-xs font-semibold text-white/80 hover:text-white hover:underline"
+                  >
+                    View profile
+                  </Link>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+
+      <div className="grid gap-6 lg:grid-cols-[minmax(0,1.6fr)_minmax(0,1fr)]">
         <div className="space-y-6">
           <section className="rounded-4xl border border-white/10 bg-white/6 p-6 shadow-[0_12px_40px_rgba(15,23,42,0.35)]">
             <div className="flex items-center justify-between">

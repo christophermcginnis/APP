@@ -5,6 +5,7 @@ import {
   circleSchema,
   circleSessionSchema,
   companionTaskSchema,
+  creatorNotificationSchema,
   creatorProfileSchema,
   creatorSummarySchema,
   profileOverviewSchema,
@@ -107,8 +108,26 @@ const profileRouter = router({
     .output(profileOverviewSchema)
     .query(() => ({} as z.infer<typeof profileOverviewSchema>)),
   following: publicProcedure
+    .input(
+      z
+        .object({
+          followerId: z.string().uuid()
+        })
+        .optional()
+    )
     .output(z.array(creatorSummarySchema))
     .query(() => [] as Array<z.infer<typeof creatorSummarySchema>>),
+  notifications: publicProcedure
+    .input(
+      z
+        .object({
+          userId: z.string().uuid().optional(),
+          handle: z.string().optional()
+        })
+        .optional()
+    )
+    .output(z.array(creatorNotificationSchema))
+    .query(() => [] as Array<z.infer<typeof creatorNotificationSchema>>),
   search: publicProcedure
     .input(
       z.object({
