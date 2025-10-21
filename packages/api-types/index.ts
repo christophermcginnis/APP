@@ -129,6 +129,17 @@ const profileRouter = router({
     )
     .output(z.array(creatorNotificationSchema))
     .query(() => [] as Array<z.infer<typeof creatorNotificationSchema>>),
+  acknowledgeNotifications: publicProcedure
+    .input(
+      z
+        .object({
+          userId: z.string().uuid().optional(),
+          handle: z.string().optional()
+        })
+        .optional()
+    )
+    .output(z.object({ acknowledged: z.boolean() }))
+    .mutation(() => ({ acknowledged: true })),
   search: publicProcedure
     .input(
       z.object({

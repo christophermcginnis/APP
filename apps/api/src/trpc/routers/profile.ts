@@ -267,15 +267,13 @@ async function resolveCreatorSummaries(
   return summaries;
 }
 
-function consumeNotificationsForHandle(handle: string): CreatorNotification[] {
+function getNotificationsForHandle(handle: string): CreatorNotification[] {
   const key = handle.toLowerCase();
   const stored = creatorNotifications.get(key);
 
   if (!stored || stored.length === 0) {
     return [];
   }
-
-  creatorNotifications.set(key, []);
 
   return stored.map((notification) => ({
     id: notification.id,
@@ -288,6 +286,11 @@ function consumeNotificationsForHandle(handle: string): CreatorNotification[] {
       avatarUrl: notification.follower.avatarUrl ?? undefined
     }
   }));
+}
+
+function clearNotificationsForHandle(handle: string) {
+  const key = handle.toLowerCase();
+  creatorNotifications.set(key, []);
 }
 
 function getIsFollowing(handle: string, viewerId?: string) {
@@ -521,7 +524,41 @@ export const profileRouter = router({
         return [];
       }
 
-      return consumeNotificationsForHandle(targetHandle);
+      return getNotificationsForHandle(targetHandle);
+    }),
+  acknowledgeNotifications: publicProcedure
+    .input(
+      z
+        .object({
+          userId: z.string().uuid().optional(),
+          handle: z.string().optional()
+        })
+        .optional()
+    )
+    .output(z.object({ acknowledged: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      if (!input) {
+        return { acknowledged: false };
+      }
+
+      let targetHandle = input.handle?.trim();
+
+      if (!targetHandle && input.userId) {
+        const user = await ctx.prisma.user.findUnique({
+          where: { id: input.userId },
+          select: { handle: true }
+        });
+
+        targetHandle = user?.handle ?? undefined;
+      }
+
+      if (!targetHandle) {
+        return { acknowledged: false };
+      }
+
+      clearNotificationsForHandle(targetHandle);
+
+      return { acknowledged: true };
     }),
   search: publicProcedure
     .input(
