@@ -8,7 +8,7 @@ import {
   Mic2,
   Music,
   Palette,
-  Sparkle
+  Sparkles
 } from "lucide-react";
 
 const heroStats = [
@@ -25,7 +25,7 @@ const featureTracks = [
       "Spin up voice rooms, story-driven lounges, or async listening parties. Companion handles intros, spotlights, and recaps."
   },
   {
-    icon: Sparkle,
+    icon: Sparkles,
     title: "AI producer on autopilot",
     description:
       "Draft invites, craft highlight reels, surface lapsed voices, and queue tasks so your vibe never flatlines."
