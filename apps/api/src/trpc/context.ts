@@ -1,5 +1,5 @@
-import { createHmac, timingSafeEqual } from "crypto";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { decode } from "next-auth/jwt";
 
 import { prisma } from "../lib/prisma.js";
 
@@ -130,7 +130,7 @@ async function resolveSession(request: FastifyRequest): Promise<Session | null> 
   }
 
   try {
-    const decoded = decodeSessionToken(token, secret);
+    const decoded = await decode({ token, secret });
     if (!decoded) {
       request.log.warn("Failed to verify session token signature.");
       return null;
@@ -151,91 +151,6 @@ async function resolveSession(request: FastifyRequest): Promise<Session | null> 
     request.log.warn({ err: error }, "Failed to decode session token");
     return null;
   }
-}
-
-type JwtHeader = {
-  alg?: string;
-};
-
-type JwtPayload = Record<string, unknown> | null;
-
-const HMAC_ALGORITHMS: Record<string, string> = {
-  HS256: "sha256",
-  HS384: "sha384",
-  HS512: "sha512"
-};
-
-function base64UrlDecode(segment: string): Buffer {
-  const normalized = segment.replace(/-/g, "+").replace(/_/g, "/");
-  const padding = normalized.length % 4 === 0 ? 0 : 4 - (normalized.length % 4);
-  return Buffer.from(normalized + "=".repeat(padding), "base64");
-}
-
-function parseJwtComponent<T>(segment: string): T | null {
-  try {
-    const json = base64UrlDecode(segment).toString("utf8");
-    return JSON.parse(json) as T;
-  } catch {
-    return null;
-  }
-}
-
-function verifyHmacSignature(
-  header: JwtHeader,
-  token: string,
-  signatureSegment: string,
-  secret: string
-): boolean {
-  const algorithm = typeof header.alg === "string" ? header.alg.toUpperCase() : null;
-
-  if (!algorithm) {
-    return false;
-  }
-
-  const nodeAlgorithm = HMAC_ALGORITHMS[algorithm];
-
-  if (!nodeAlgorithm) {
-    return false;
-  }
-
-  const signature = base64UrlDecode(signatureSegment);
-  const payloadToSign = token.slice(0, token.lastIndexOf("."));
-
-  const candidates = [Buffer.from(secret, "utf8"), Buffer.from(secret, "base64")];
-
-  for (const candidate of candidates) {
-    const hmac = createHmac(nodeAlgorithm, candidate);
-    hmac.update(payloadToSign);
-    const digest = hmac.digest();
-
-    if (digest.length === signature.length && timingSafeEqual(digest, signature)) {
-      return true;
-    }
-  }
-
-  return false;
-}
-
-function decodeSessionToken(token: string, secret: string): JwtPayload {
-  const segments = token.split(".");
-
-  if (segments.length !== 3) {
-    return null;
-  }
-
-  const [headerSegment, payloadSegment, signatureSegment] = segments;
-  const header = parseJwtComponent<JwtHeader>(headerSegment);
-  const payload = parseJwtComponent<Record<string, unknown>>(payloadSegment);
-
-  if (!header || !payload) {
-    return null;
-  }
-
-  if (!verifyHmacSignature(header, token, signatureSegment, secret)) {
-    return null;
-  }
-
-  return payload;
 }
 
 export async function createContext({
