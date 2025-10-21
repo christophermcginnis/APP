@@ -96,7 +96,8 @@ export const creatorProfileSchema = z.object({
   headline: z.string(),
   featuredCircles: z.array(creatorCircleSummarySchema),
   testimonials: z.array(creatorTestimonialSchema),
-  highlights: z.array(creatorHighlightSchema)
+  highlights: z.array(creatorHighlightSchema),
+  isFollowing: z.boolean()
 });
 
 export type ProfileCircleSummary = z.infer<typeof profileCircleSummarySchema>;

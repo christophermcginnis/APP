@@ -127,7 +127,8 @@ function buildCreatorProfileFromUser(user: UserWithCircles): CreatorProfile {
         : `${displayName} is building calm creator circles on CircleCast.`,
     featuredCircles,
     testimonials,
-    highlights: highlights.slice(0, 6)
+    highlights: highlights.slice(0, 6),
+    isFollowing: false
   };
 }
 
@@ -150,6 +151,17 @@ function findMockCreatorProfile(handle: string): CreatorProfile | undefined {
   );
 
   return entry?.[1];
+}
+
+const creatorFollowers = new Map<string, Set<string>>();
+
+function getIsFollowing(handle: string, viewerId?: string) {
+  if (!viewerId) {
+    return false;
+  }
+
+  const followers = creatorFollowers.get(handle.toLowerCase());
+  return followers?.has(viewerId) ?? false;
 }
 
 export const profileRouter = router({
@@ -243,6 +255,43 @@ export const profileRouter = router({
   following: publicProcedure
     .output(z.array(creatorSummarySchema))
     .query(() => followingCreatorsMock),
+  followCreator: publicProcedure
+    .input(
+      z.object({
+        handle: z.string(),
+        followerId: z.string().uuid(),
+        follow: z.boolean().optional()
+      })
+    )
+    .output(
+      z.object({
+        handle: z.string(),
+        isFollowing: z.boolean()
+      })
+    )
+    .mutation(async ({ input }) => {
+      const normalizedHandle = input.handle.trim();
+      const key = normalizedHandle.toLowerCase();
+      const followerId = input.followerId;
+      const followers = creatorFollowers.get(key) ?? new Set<string>();
+      const currentlyFollowing = followers.has(followerId);
+      const nextState = input.follow ?? !currentlyFollowing;
+
+      if (nextState) {
+        followers.add(followerId);
+      } else {
+        followers.delete(followerId);
+      }
+
+      creatorFollowers.set(key, followers);
+
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      return {
+        handle: normalizedHandle,
+        isFollowing: followers.has(followerId)
+      };
+    }),
   search: publicProcedure
     .input(
       z.object({
@@ -387,16 +436,18 @@ export const profileRouter = router({
   creatorByHandle: publicProcedure
     .input(
       z.object({
-        handle: z.string()
+        handle: z.string(),
+        viewerId: z.string().uuid().optional()
       })
     )
     .output(creatorProfileSchema)
     .query(async ({ ctx, input }) => {
       const normalizedHandle = input.handle.trim();
+      const isFollowing = getIsFollowing(normalizedHandle, input.viewerId);
 
       const mockProfile = findMockCreatorProfile(normalizedHandle);
       if (mockProfile) {
-        return mockProfile;
+        return { ...mockProfile, isFollowing };
       }
 
       const user = await ctx.prisma.user.findFirst({
@@ -423,6 +474,7 @@ export const profileRouter = router({
         });
       }
 
-      return buildCreatorProfileFromUser(user);
+      const profile = buildCreatorProfileFromUser(user);
+      return { ...profile, isFollowing };
     })
 });

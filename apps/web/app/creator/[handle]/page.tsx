@@ -2,9 +2,11 @@
 
 import { CreatorFeaturedCircles } from "@/components/profile/creator-featured-circles";
 import { CreatorTestimonials } from "@/components/profile/creator-testimonials";
+import { FollowCreatorButton } from "@/components/profile/follow-creator-button";
 import { ProfileHighlights } from "@/components/profile/profile-highlights";
 import { ProfileHeader } from "@/components/profile/profile-header";
 import { useCreatorProfile } from "@/hooks/use-creator-profile";
+import { useCurrentUser } from "@/hooks/use-current-user";
 import { creatorProfileMock } from "@/mocks/profile";
 
 type CreatorProfilePageProps = {
@@ -15,8 +17,9 @@ type CreatorProfilePageProps = {
 
 export default function CreatorProfilePage({ params }: CreatorProfilePageProps) {
   const decodedHandle = decodeURIComponent(params.handle ?? "");
+  const { user } = useCurrentUser();
   const { data, isLoading, isError, error, refetch, isFetching } =
-    useCreatorProfile(decodedHandle);
+    useCreatorProfile(decodedHandle, user.isAuthenticated ? user.id : undefined);
 
   const profile = data ?? { ...creatorProfileMock, handle: decodedHandle };
   const errorMessage =
@@ -51,9 +54,7 @@ export default function CreatorProfilePage({ params }: CreatorProfilePageProps) 
             <button className="rounded-full bg-gradient-to-r from-indigo-400 via-sky-400 to-emerald-400 px-4 py-2 text-xs font-semibold text-slate-900 transition hover:brightness-110">
               Request to join a circle
             </button>
-            <button className="rounded-full border border-white/25 px-4 py-2 text-xs font-semibold text-white/80 transition hover:bg-white/10 hover:text-white">
-              Follow for updates
-            </button>
+            <FollowCreatorButton handle={profile.handle} isFollowing={profile.isFollowing} />
           </>
         }
       />

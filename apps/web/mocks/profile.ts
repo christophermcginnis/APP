@@ -121,7 +121,8 @@ const creatorProfilesMock: Record<string, CreatorProfile> = Object.fromEntries(
             description:
               "Companion summarised member breakthroughs and queued next-step tasks."
           }
-        ]
+        ],
+        isFollowing: false
       }
     ];
   })
