@@ -124,6 +124,7 @@ export declare const creatorNotificationSchema: z.ZodObject<{
     id: z.ZodString;
     type: z.ZodLiteral<"follow">;
     createdAt: z.ZodString;
+    seenAt: z.ZodOptional<z.ZodString>;
     follower: z.ZodObject<{
         id: z.ZodString;
         name: z.ZodString;
@@ -144,6 +145,7 @@ export declare const creatorNotificationSchema: z.ZodObject<{
     id: string;
     type: "follow";
     createdAt: string;
+    seenAt?: string | undefined;
     follower: {
         id: string;
         name: string;
@@ -154,6 +156,7 @@ export declare const creatorNotificationSchema: z.ZodObject<{
     id: string;
     type: "follow";
     createdAt: string;
+    seenAt?: string | undefined;
     follower: {
         id: string;
         name: string;

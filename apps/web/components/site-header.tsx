@@ -23,7 +23,6 @@ export function SiteHeader() {
   const { user } = useCurrentUser();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [hasViewedNotifications, setHasViewedNotifications] = useState(false);
   const [didManuallyOpenNotifications, setDidManuallyOpenNotifications] = useState(false);
   const notificationsContainerRef = useRef<HTMLDivElement | null>(null);
 
@@ -32,9 +31,6 @@ export function SiteHeader() {
     isFetching: notificationsFetching,
     refetch: refetchNotifications
   } = useCreatorNotifications();
-
-  const utils = trpc.useUtils();
-  const markNotificationsAsSeen = trpc.profile.markNotificationsAsSeen.useMutation();
 
   const notificationsQueryInput = useMemo(
     () =>
@@ -48,24 +44,19 @@ export function SiteHeader() {
   );
   const notificationsHandle = notificationsQueryInput?.handle;
 
+  const utils = trpc.useUtils();
+  const markNotificationsAsSeen = trpc.profile.markNotificationsAsSeen.useMutation();
+
   const notifications = notificationsData;
-  const unseenNotificationsCount = notifications.length;
-  const previousNotificationsCountRef = useRef(unseenNotificationsCount);
-
-  useEffect(() => {
-    if (unseenNotificationsCount > previousNotificationsCountRef.current) {
-      setHasViewedNotifications(false);
-    }
-
-    previousNotificationsCountRef.current = unseenNotificationsCount;
-  }, [unseenNotificationsCount]);
+  const unseenNotificationsCount = notifications.filter(
+    (notification) => !notification.seenAt
+  ).length;
+  const hasUnseenNotifications = unseenNotificationsCount > 0;
 
   useEffect(() => {
     if (!user.isAuthenticated) {
       setNotificationsOpen(false);
-      setHasViewedNotifications(false);
       setDidManuallyOpenNotifications(false);
-      previousNotificationsCountRef.current = 0;
     }
   }, [user.isAuthenticated]);
 
@@ -80,38 +71,7 @@ export function SiteHeader() {
       return;
     }
 
-    if (notifications.length === 0) {
-      return;
-    }
-
     if (!didManuallyOpenNotifications) {
-      return;
-    }
-
-    if (hasViewedNotifications) {
-      return;
-    }
-
-    setHasViewedNotifications(true);
-
-    if (user.isAuthenticated && !markNotificationsAsSeen.isPending) {
-      markNotificationsAsSeen.mutate(
-        notificationsHandle ? { handle: notificationsHandle } : undefined
-      );
-    }
-  }, [
-    didManuallyOpenNotifications,
-    hasViewedNotifications,
-    markNotificationsAsSeen,
-    markNotificationsAsSeen.isPending,
-    notifications.length,
-    notificationsOpen,
-    notificationsHandle,
-    user.isAuthenticated
-  ]);
-
-  useEffect(() => {
-    if (notificationsOpen) {
       return;
     }
 
@@ -119,22 +79,43 @@ export function SiteHeader() {
       return;
     }
 
-    if (!hasViewedNotifications) {
-      return;
-    }
-
     if (!notificationsQueryInput) {
       return;
     }
 
-    if (notifications.length === 0) {
+    if (!hasUnseenNotifications) {
       return;
     }
 
-    void utils.profile.notifications.invalidate(notificationsQueryInput);
+    if (markNotificationsAsSeen.isPending) {
+      return;
+    }
+
+    const input = notificationsHandle ? { handle: notificationsHandle } : undefined;
+    const seenTimestamp = new Date().toISOString();
+
+    const updatedNotifications = notifications.map((notification) =>
+      notification.seenAt
+        ? notification
+        : {
+            ...notification,
+            seenAt: seenTimestamp
+          }
+    );
+
+    utils.profile.notifications.setData(
+      notificationsQueryInput,
+      updatedNotifications
+    );
+
+    markNotificationsAsSeen.mutate(input);
   }, [
-    hasViewedNotifications,
-    notifications.length,
+    didManuallyOpenNotifications,
+    hasUnseenNotifications,
+    markNotificationsAsSeen,
+    markNotificationsAsSeen.isPending,
+    notifications,
+    notificationsHandle,
     notificationsOpen,
     notificationsQueryInput,
     user.isAuthenticated,
@@ -251,14 +232,14 @@ export function SiteHeader() {
                   setNotificationsOpen(willOpen);
                 }}
                 aria-label={
-                  notifications.length
-                    ? `Open notifications (${notifications.length})`
+                  hasUnseenNotifications
+                    ? `Open notifications (${unseenNotificationsCount})`
                     : "Open notifications"
                 }
                 aria-expanded={notificationsOpen}
               >
                 <Bell className="h-4 w-4" aria-hidden />
-                {notifications.length > 0 && !hasViewedNotifications ? (
+                {hasUnseenNotifications ? (
                   <span className="absolute right-2 top-2 inline-flex h-2.5 w-2.5 rounded-full bg-rose-400 ring-2 ring-slate-950" />
                 ) : null}
               </button>
