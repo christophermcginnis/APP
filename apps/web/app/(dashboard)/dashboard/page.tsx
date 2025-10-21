@@ -88,7 +88,9 @@ export default function DashboardFeedPage() {
   const circles = circlesData?.circles ?? [];
   const tasks = tasksData?.tasks ?? [];
   const following: CreatorSummary[] = followingData ?? profile.following;
-  const notifications = notificationsData;
+  const notifications = notificationsData.filter(
+    (notification) => !notification.seenAt
+  );
 
   const feedItems = useMemo<FeedItem[]>(() => {
     const taskEntries = tasks.map((task) => ({
