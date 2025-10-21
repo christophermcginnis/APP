@@ -19,11 +19,11 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full">
-      <body className={`${inter.className} min-h-screen bg-white`}>
+      <body className={`${inter.className} flex min-h-screen flex-col bg-white`}>
         <div className="noise" aria-hidden="true" />
         <Providers>
           <SiteHeader />
-          <main className="pt-20 sm:pt-24">{children}</main>
+          <main className="flex-1">{children}</main>
         </Providers>
       </body>
     </html>
