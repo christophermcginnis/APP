@@ -169,6 +169,7 @@ type StoredNotification = {
   id: string;
   type: "follow";
   createdAt: Date;
+  seenAt: Date | null;
   follower: {
     id: string;
     name: string;
@@ -272,6 +273,7 @@ function mapStoredNotification(notification: StoredNotification): CreatorNotific
     id: notification.id,
     type: "follow",
     createdAt: notification.createdAt.toISOString(),
+    seenAt: notification.seenAt ? notification.seenAt.toISOString() : undefined,
     follower: {
       id: notification.follower.id,
       name: notification.follower.name,
@@ -292,13 +294,27 @@ function getNotificationsForHandle(handle: string): CreatorNotification[] {
   return stored.map(mapStoredNotification);
 }
 
-function clearNotificationsForHandle(handle: string) {
+function markNotificationsForHandleAsSeen(handle: string) {
   const key = handle.toLowerCase();
-  if (!creatorNotifications.has(key)) {
+  const stored = creatorNotifications.get(key);
+
+  if (!stored || stored.length === 0) {
     return;
   }
 
-  creatorNotifications.set(key, []);
+  const seenAt = new Date();
+
+  creatorNotifications.set(
+    key,
+    stored.map((notification) =>
+      notification.seenAt
+        ? notification
+        : {
+            ...notification,
+            seenAt
+          }
+    )
+  );
 }
 
 async function resolveCreatorHandle(
@@ -515,6 +531,7 @@ export const profileRouter = router({
           id: randomUUID(),
           type: "follow",
           createdAt: new Date(),
+          seenAt: null,
           follower: {
             id: followerId,
             name: followerName,
@@ -575,7 +592,7 @@ export const profileRouter = router({
         return { success: false } as const;
       }
 
-      clearNotificationsForHandle(targetHandle);
+      markNotificationsForHandleAsSeen(targetHandle);
 
       return { success: true } as const;
     }),

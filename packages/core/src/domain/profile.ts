@@ -56,6 +56,7 @@ export const creatorNotificationSchema = z.object({
   id: z.string(),
   type: z.literal("follow"),
   createdAt: z.string(),
+  seenAt: z.string().optional(),
   follower: z.object({
     id: z.string(),
     name: z.string(),
