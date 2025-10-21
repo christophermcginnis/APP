@@ -30,7 +30,7 @@ export default function SignInPage() {
     setError(null);
 
     try {
-      const email = magicEmail.trim().toLowerCase();
+      const email = magicEmail.trim();
       const result = await signIn("email", {
         email,
         redirect: false,
@@ -57,7 +57,7 @@ export default function SignInPage() {
     setError(null);
 
     try {
-      const email = credentialsEmail.trim().toLowerCase();
+      const email = credentialsEmail.trim();
       const result = await signIn("credentials", {
         email,
         password,
