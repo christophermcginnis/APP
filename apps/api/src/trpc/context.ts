@@ -1,10 +1,12 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { decode } from "next-auth/jwt";
 
 import { prisma } from "../lib/prisma.js";
 
 type Session = {
   user: {
     id: string;
+    handle?: string | null;
   };
 };
 
@@ -15,24 +17,117 @@ export type TrpcContext = {
   session: Session | null;
 };
 
-function resolveSession(request: FastifyRequest): Session | null {
-  const header = request.headers["x-circlecast-user-id"];
+const SESSION_COOKIE_NAMES = [
+  "__Secure-next-auth.session-token",
+  "next-auth.session-token",
+  "__Secure-authjs.session-token",
+  "authjs.session-token"
+] as const;
 
-  if (!header) {
+function extractBearerToken(request: FastifyRequest): string | null {
+  const authorization = request.headers.authorization;
+
+  if (!authorization) {
     return null;
   }
 
-  const userId = Array.isArray(header) ? header[0] : header;
+  const [scheme, token] = authorization.split(" ");
 
-  if (typeof userId !== "string" || userId.trim().length === 0) {
+  if (!scheme || scheme.toLowerCase() !== "bearer" || !token) {
     return null;
   }
 
-  return {
-    user: {
-      id: userId
+  return token.trim().length > 0 ? token.trim() : null;
+}
+
+function parseCookies(cookieHeader: string | undefined): Record<string, string> {
+  if (!cookieHeader) {
+    return {};
+  }
+
+  return cookieHeader
+    .split(";")
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0)
+    .reduce<Record<string, string>>((all, segment) => {
+      const separatorIndex = segment.indexOf("=");
+
+      if (separatorIndex === -1) {
+        return all;
+      }
+
+      const name = segment.slice(0, separatorIndex).trim();
+      const value = segment.slice(separatorIndex + 1);
+
+      if (name.length === 0) {
+        return all;
+      }
+
+      try {
+        all[name] = decodeURIComponent(value);
+      } catch {
+        all[name] = value;
+      }
+
+      return all;
+    }, {});
+}
+
+function extractSessionToken(request: FastifyRequest): string | null {
+  const bearerToken = extractBearerToken(request);
+
+  if (bearerToken) {
+    return bearerToken;
+  }
+
+  const cookieHeader = Array.isArray(request.headers.cookie)
+    ? request.headers.cookie.join("; ")
+    : request.headers.cookie;
+  const cookies = parseCookies(cookieHeader);
+
+  for (const name of SESSION_COOKIE_NAMES) {
+    const value = cookies[name];
+
+    if (value) {
+      return value;
     }
-  };
+  }
+
+  return null;
+}
+
+async function resolveSession(request: FastifyRequest): Promise<Session | null> {
+  const token = extractSessionToken(request);
+
+  if (!token) {
+    return null;
+  }
+
+  const secret = request.server.env?.NEXTAUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+
+  if (!secret) {
+    request.log.warn("NEXTAUTH_SECRET is not configured; rejecting session token.");
+    return null;
+  }
+
+  try {
+    const decoded = await decode({ token, secret });
+    const userId = typeof decoded?.sub === "string" ? decoded.sub : null;
+
+    if (!userId) {
+      return null;
+    }
+
+    return {
+      user: {
+        id: userId,
+        handle: typeof decoded?.handle === "string" ? decoded.handle : null
+      }
+    };
+  } catch (error) {
+    request.log.warn({ err: error }, "Failed to decode session token");
+    return null;
+  }
 }
 
 export async function createContext({
@@ -46,6 +141,6 @@ export async function createContext({
     prisma,
     req,
     reply: res,
-    session: resolveSession(req)
+    session: await resolveSession(req)
   };
 }
