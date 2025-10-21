@@ -26,12 +26,11 @@ export function SiteHeader() {
   const notificationsContainerRef = useRef<HTMLDivElement | null>(null);
 
   const {
-    data: notificationsData = [],
+    notifications,
     isFetching: notificationsFetching,
-    refetch: refetchNotifications
+    refetch: refetchNotifications,
+    clearNotifications
   } = useCreatorNotifications();
-
-  const notifications = notificationsData;
   const unseenNotificationsCount = notifications.length;
   const previousNotificationsCountRef = useRef(unseenNotificationsCount);
 
@@ -60,6 +59,11 @@ export function SiteHeader() {
         !notificationsContainerRef.current.contains(event.target as Node)
       ) {
         setNotificationsOpen(false);
+
+        if (hasViewedNotifications) {
+          clearNotifications();
+          setHasViewedNotifications(false);
+        }
       }
     }
 
@@ -68,7 +72,7 @@ export function SiteHeader() {
     return () => {
       window.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [notificationsOpen]);
+  }, [clearNotifications, hasViewedNotifications, notificationsOpen]);
 
   const navLinks = user.isAuthenticated ? primaryLinks : [];
 
@@ -148,9 +152,9 @@ export function SiteHeader() {
 
                   if (willOpen) {
                     void refetchNotifications();
-                    if (notifications.length > 0) {
-                      setHasViewedNotifications(true);
-                    }
+                  } else if (hasViewedNotifications) {
+                    clearNotifications();
+                    setHasViewedNotifications(false);
                   }
 
                   setNotificationsOpen(willOpen);
