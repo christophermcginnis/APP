@@ -133,11 +133,27 @@ const profileRouter = router({
   creatorByHandle: publicProcedure
     .input(
       z.object({
-        handle: z.string()
+        handle: z.string(),
+        viewerId: z.string().uuid().optional()
       })
     )
     .output(creatorProfileSchema)
-    .query(() => ({} as z.infer<typeof creatorProfileSchema>))
+    .query(() => ({} as z.infer<typeof creatorProfileSchema>)),
+  followCreator: publicProcedure
+    .input(
+      z.object({
+        handle: z.string(),
+        followerId: z.string().uuid(),
+        follow: z.boolean().optional()
+      })
+    )
+    .output(
+      z.object({
+        handle: z.string(),
+        isFollowing: z.boolean()
+      })
+    )
+    .mutation(() => ({ handle: "", isFollowing: false }))
 });
 
 export const appRouter = router({

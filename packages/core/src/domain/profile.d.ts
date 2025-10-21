@@ -425,6 +425,7 @@ export declare const creatorProfileSchema: z.ZodObject<{
         title: string;
         description: string;
     }>, "many">;
+    isFollowing: z.ZodBoolean;
 }, "strip", z.ZodTypeAny, {
     handle: string;
     headline: string;
@@ -446,6 +447,7 @@ export declare const creatorProfileSchema: z.ZodObject<{
         quote: string;
         author: string;
     }[];
+    isFollowing: boolean;
 }, {
     handle: string;
     headline: string;
@@ -467,6 +469,7 @@ export declare const creatorProfileSchema: z.ZodObject<{
         quote: string;
         author: string;
     }[];
+    isFollowing: boolean;
 }>;
 export type ProfileCircleSummary = z.infer<typeof profileCircleSummarySchema>;
 export type ProfileHighlight = z.infer<typeof profileHighlightSchema>;
