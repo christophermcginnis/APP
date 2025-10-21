@@ -37,6 +37,7 @@ docs/
 Full setup instructions will be added as services are scaffolded. Initial tasks:
 
 1. Install dependencies with `pnpm install` (recommended).
+   - The repository includes a workspace-level `.npmrc` that increases retry and timeout defaults so installs succeed even on slow or proxied connections.
 2. Configure environment variables using provided `.env.example` files.
    - `apps/api/.env` → Fastify service (`STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `DATABASE_URL`, etc.).
    - `apps/web/.env` → Next.js client (`NEXTAUTH_SECRET`, `STRIPE_PUBLISHABLE_KEY`, etc.).
