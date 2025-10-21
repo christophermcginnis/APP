@@ -267,19 +267,10 @@ async function resolveCreatorSummaries(
   return summaries;
 }
 
-function consumeNotificationsForHandle(handle: string): CreatorNotification[] {
-  const key = handle.toLowerCase();
-  const stored = creatorNotifications.get(key);
-
-  if (!stored || stored.length === 0) {
-    return [];
-  }
-
-  creatorNotifications.set(key, []);
-
-  return stored.map((notification) => ({
+function mapStoredNotification(notification: StoredNotification): CreatorNotification {
+  return {
     id: notification.id,
-    type: "follow" as const,
+    type: "follow",
     createdAt: notification.createdAt.toISOString(),
     follower: {
       id: notification.follower.id,
@@ -287,7 +278,59 @@ function consumeNotificationsForHandle(handle: string): CreatorNotification[] {
       handle: notification.follower.handle ?? undefined,
       avatarUrl: notification.follower.avatarUrl ?? undefined
     }
-  }));
+  };
+}
+
+function getNotificationsForHandle(handle: string): CreatorNotification[] {
+  const key = handle.toLowerCase();
+  const stored = creatorNotifications.get(key);
+
+  if (!stored || stored.length === 0) {
+    return [];
+  }
+
+  return stored.map(mapStoredNotification);
+}
+
+function clearNotificationsForHandle(handle: string) {
+  const key = handle.toLowerCase();
+  if (!creatorNotifications.has(key)) {
+    return;
+  }
+
+  creatorNotifications.set(key, []);
+}
+
+async function resolveCreatorHandle(
+  ctx: TrpcContext,
+  input?: { handle?: string | null; userId?: string | null }
+): Promise<string | null> {
+  const directHandle = input?.handle?.trim();
+
+  if (directHandle && directHandle.length > 0) {
+    return directHandle;
+  }
+
+  const sessionHandle = ctx.session?.user.handle?.trim();
+
+  if (sessionHandle && sessionHandle.length > 0) {
+    return sessionHandle;
+  }
+
+  const targetUserId = input?.userId ?? ctx.session?.user.id;
+
+  if (!targetUserId) {
+    return null;
+  }
+
+  const user = await ctx.prisma.user.findUnique({
+    where: { id: targetUserId },
+    select: { handle: true }
+  });
+
+  const dbHandle = user?.handle?.trim();
+
+  return dbHandle && dbHandle.length > 0 ? dbHandle : null;
 }
 
 function getIsFollowing(handle: string, viewerId?: string) {
@@ -506,22 +549,35 @@ export const profileRouter = router({
         return [];
       }
 
-      let targetHandle = input.handle?.trim();
-
-      if (!targetHandle && input.userId) {
-        const user = await ctx.prisma.user.findUnique({
-          where: { id: input.userId },
-          select: { handle: true }
-        });
-
-        targetHandle = user?.handle ?? undefined;
-      }
+      const targetHandle = await resolveCreatorHandle(ctx, input);
 
       if (!targetHandle) {
         return [];
       }
 
-      return consumeNotificationsForHandle(targetHandle);
+      return getNotificationsForHandle(targetHandle);
+    }),
+  markNotificationsAsSeen: protectedProcedure
+    .input(
+      z
+        .object({
+          handle: z.string().optional()
+        })
+        .optional()
+    )
+    .mutation(async ({ ctx, input }) => {
+      const targetHandle = await resolveCreatorHandle(ctx, {
+        handle: input?.handle ?? null,
+        userId: ctx.session?.user.id
+      });
+
+      if (!targetHandle) {
+        return { success: false } as const;
+      }
+
+      clearNotificationsForHandle(targetHandle);
+
+      return { success: true } as const;
     }),
   search: publicProcedure
     .input(
