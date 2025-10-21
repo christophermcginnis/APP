@@ -19,7 +19,9 @@ export function useCreatorNotifications() {
     enabled: shouldFetchNotifications,
     retry: false,
     refetchOnWindowFocus: false,
-    refetchInterval: shouldFetchNotifications ? 5_000 : false,
+    refetchInterval: shouldFetchNotifications
+      ? (data) => (data && data.length > 0 ? false : 5_000)
+      : false,
     refetchIntervalInBackground: true,
     staleTime: 0,
     placeholderData: []

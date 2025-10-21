@@ -4,10 +4,11 @@ import Image from "next/image";
 import { Bell, Loader2, LogOut, Menu, User2, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useCreatorNotifications } from "@/hooks/use-creator-notifications";
+import { trpc } from "@/lib/trpc/react";
 import { UserSearch } from "./user-search";
 
 const primaryLinks = [
@@ -31,6 +32,26 @@ export function SiteHeader() {
     refetch: refetchNotifications
   } = useCreatorNotifications();
 
+  const utils = trpc.useUtils();
+  const {
+    mutate: markNotificationsAsSeen,
+    reset: resetMarkNotificationsAsSeen,
+    isPending: markNotificationsAsSeenPending,
+    isSuccess: markNotificationsAsSeenSuccess
+  } = trpc.profile.markNotificationsAsSeen.useMutation();
+
+  const notificationsQueryInput = useMemo(
+    () =>
+      user.isAuthenticated
+        ? {
+            userId: user.id,
+            handle: user.handle ?? undefined
+          }
+        : undefined,
+    [user.id, user.handle, user.isAuthenticated]
+  );
+  const notificationsHandle = notificationsQueryInput?.handle;
+
   const notifications = notificationsData;
   const unseenNotificationsCount = notifications.length;
   const previousNotificationsCountRef = useRef(unseenNotificationsCount);
@@ -38,16 +59,77 @@ export function SiteHeader() {
   useEffect(() => {
     if (unseenNotificationsCount > previousNotificationsCountRef.current) {
       setHasViewedNotifications(false);
+      resetMarkNotificationsAsSeen();
     }
 
     previousNotificationsCountRef.current = unseenNotificationsCount;
-  }, [unseenNotificationsCount]);
+  }, [resetMarkNotificationsAsSeen, unseenNotificationsCount]);
 
   useEffect(() => {
-    if (notificationsOpen && notifications.length > 0) {
-      setHasViewedNotifications(true);
+    if (!notificationsOpen) {
+      return;
     }
-  }, [notificationsOpen, notifications.length]);
+
+    if (notifications.length === 0) {
+      return;
+    }
+
+    if (hasViewedNotifications) {
+      return;
+    }
+
+    setHasViewedNotifications(true);
+
+    if (user.isAuthenticated && !markNotificationsAsSeenPending) {
+      markNotificationsAsSeen(
+        notificationsHandle ? { handle: notificationsHandle } : undefined
+      );
+    }
+  }, [
+    hasViewedNotifications,
+    markNotificationsAsSeen,
+    markNotificationsAsSeenPending,
+    notifications.length,
+    notificationsOpen,
+    notificationsHandle,
+    user.isAuthenticated
+  ]);
+
+  useEffect(() => {
+    if (notificationsOpen) {
+      return;
+    }
+
+    if (!user.isAuthenticated) {
+      return;
+    }
+
+    if (!hasViewedNotifications) {
+      return;
+    }
+
+    if (!markNotificationsAsSeenSuccess) {
+      return;
+    }
+
+    if (!notificationsQueryInput) {
+      return;
+    }
+
+    if (notifications.length === 0) {
+      return;
+    }
+
+    void utils.profile.notifications.invalidate(notificationsQueryInput);
+  }, [
+    hasViewedNotifications,
+    notifications.length,
+    notificationsOpen,
+    notificationsQueryInput,
+    markNotificationsAsSeenSuccess,
+    user.isAuthenticated,
+    utils
+  ]);
 
   useEffect(() => {
     if (!notificationsOpen) {
@@ -146,14 +228,8 @@ export function SiteHeader() {
                 onClick={() => {
                   const willOpen = !notificationsOpen;
 
-                  if (willOpen) {
-                    if (notifications.length === 0) {
-                      void refetchNotifications();
-                    }
-
-                    if (notifications.length > 0) {
-                      setHasViewedNotifications(true);
-                    }
+                  if (willOpen && notifications.length === 0) {
+                    void refetchNotifications();
                   }
 
                   setNotificationsOpen(willOpen);
