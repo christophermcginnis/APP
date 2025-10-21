@@ -4,7 +4,7 @@ import Image from "next/image";
 import { Bell, Loader2, LogOut, Menu, User2, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { signOut } from "next-auth/react";
 import { useCurrentUser } from "@/hooks/use-current-user";
 import { useCreatorNotifications } from "@/hooks/use-creator-notifications";
@@ -31,22 +31,58 @@ export function SiteHeader() {
     refetch: refetchNotifications,
     clearNotifications
   } = useCreatorNotifications();
-  const unseenNotificationsCount = notifications.length;
-  const previousNotificationsCountRef = useRef(unseenNotificationsCount);
+  const previousNotificationsCountRef = useRef(notifications.length);
 
   useEffect(() => {
-    if (unseenNotificationsCount > previousNotificationsCountRef.current) {
+    if (notificationsOpen) {
+      if (notifications.length > 0) {
+        setHasViewedNotifications(true);
+      }
+
+      previousNotificationsCountRef.current = notifications.length;
+      return;
+    }
+
+    if (notifications.length > previousNotificationsCountRef.current) {
       setHasViewedNotifications(false);
     }
 
-    previousNotificationsCountRef.current = unseenNotificationsCount;
-  }, [unseenNotificationsCount]);
-
-  useEffect(() => {
-    if (notificationsOpen && notifications.length > 0) {
-      setHasViewedNotifications(true);
-    }
+    previousNotificationsCountRef.current = notifications.length;
   }, [notificationsOpen, notifications.length]);
+
+  const closeNotificationsPanel = useCallback(() => {
+    if (!notificationsOpen) {
+      return;
+    }
+
+    setNotificationsOpen(false);
+
+    if (hasViewedNotifications && notifications.length > 0) {
+      clearNotifications();
+      setHasViewedNotifications(false);
+    }
+  }, [clearNotifications, hasViewedNotifications, notifications.length, notificationsOpen]);
+
+  const handleNotificationsToggle = useCallback(() => {
+    const willOpen = !notificationsOpen;
+
+    if (willOpen) {
+      if (notifications.length === 0 && !notificationsFetching) {
+        void refetchNotifications();
+      }
+
+      setNotificationsOpen(true);
+      return;
+    }
+
+    closeNotificationsPanel();
+  }, [
+    closeNotificationsPanel,
+    notifications.length,
+    notificationsFetching,
+    notificationsOpen,
+    refetchNotifications
+  ]);
 
   useEffect(() => {
     if (!notificationsOpen) {
@@ -58,12 +94,7 @@ export function SiteHeader() {
         notificationsContainerRef.current &&
         !notificationsContainerRef.current.contains(event.target as Node)
       ) {
-        setNotificationsOpen(false);
-
-        if (hasViewedNotifications) {
-          clearNotifications();
-          setHasViewedNotifications(false);
-        }
+        closeNotificationsPanel();
       }
     }
 
@@ -72,7 +103,7 @@ export function SiteHeader() {
     return () => {
       window.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [clearNotifications, hasViewedNotifications, notificationsOpen]);
+  }, [closeNotificationsPanel, notificationsOpen]);
 
   const navLinks = user.isAuthenticated ? primaryLinks : [];
 
@@ -147,18 +178,7 @@ export function SiteHeader() {
               <button
                 type="button"
                 className="relative inline-flex h-10 w-10 items-center justify-center rounded-full border border-white/15 text-white transition hover:border-white/40 hover:bg-white/10"
-                onClick={() => {
-                  const willOpen = !notificationsOpen;
-
-                  if (willOpen) {
-                    void refetchNotifications();
-                  } else if (hasViewedNotifications) {
-                    clearNotifications();
-                    setHasViewedNotifications(false);
-                  }
-
-                  setNotificationsOpen(willOpen);
-                }}
+                onClick={handleNotificationsToggle}
                 aria-label={
                   notifications.length
                     ? `Open notifications (${notifications.length})`
