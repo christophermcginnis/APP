@@ -1,7 +1,8 @@
 import {
   creatorProfileSchema,
   creatorSummarySchema,
-  profileOverviewSchema
+  profileOverviewSchema,
+  profileSearchResultSchema
 } from "@circlecast/core";
 import { TRPCError } from "@trpc/server";
 import bcrypt from "bcryptjs";
@@ -105,6 +106,75 @@ export const profileRouter = router({
   following: publicProcedure
     .output(z.array(creatorSummarySchema))
     .query(() => followingCreatorsMock),
+  search: publicProcedure
+    .input(
+      z.object({
+        query: z.string().min(2).max(100)
+      })
+    )
+    .output(z.array(profileSearchResultSchema))
+    .query(async ({ ctx, input }) => {
+      const searchTerm = input.query.trim();
+
+      if (searchTerm.length < 2) {
+        return [];
+      }
+
+      const users = await ctx.prisma.user.findMany({
+        where: {
+          OR: [
+            { handle: { contains: searchTerm, mode: "insensitive" } },
+            { name: { contains: searchTerm, mode: "insensitive" } },
+            { email: { contains: searchTerm, mode: "insensitive" } }
+          ]
+        },
+        select: {
+          id: true,
+          name: true,
+          handle: true,
+          image: true,
+          bio: true
+        },
+        orderBy: {
+          createdAt: "desc"
+        },
+        take: 8
+      });
+
+      const seenHandles = new Set<string>();
+
+      return users
+        .filter((user) => {
+          if (!user.handle) {
+            return false;
+          }
+
+          if (seenHandles.has(user.handle)) {
+            return false;
+          }
+
+          seenHandles.add(user.handle);
+          return true;
+        })
+        .map((user) => {
+          const normalizedName = user.name?.trim();
+          const normalizedHeadline = user.bio?.trim();
+
+          return {
+            id: user.id,
+            name:
+              normalizedName && normalizedName.length > 0
+                ? normalizedName
+                : user.handle!,
+            handle: user.handle!,
+            avatarUrl: user.image ?? undefined,
+            headline:
+              normalizedHeadline && normalizedHeadline.length > 0
+                ? normalizedHeadline
+                : undefined
+          };
+        });
+    }),
   register: publicProcedure
     .input(
       z.object({
@@ -124,15 +194,30 @@ export const profileRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const normalizedEmail = input.email.trim().toLowerCase();
       const birthdate = input.birthdate ? new Date(input.birthdate) : null;
 
-      const fullName = `${input.firstName.trim()} ${input.lastName.trim()}`.trim();
+      const firstName = input.firstName.trim();
+      const lastName = input.lastName.trim();
+      const handle = input.handle.trim();
+      const fullName = `${firstName} ${lastName}`.trim();
+
+      const existingEmailOwner = await ctx.prisma.user.findUnique({
+        where: { email: normalizedEmail }
+      });
+
+      if (existingEmailOwner) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "An account with that email already exists. Please sign in instead."
+        });
+      }
 
       const existingHandleOwner = await ctx.prisma.user.findFirst({
         where: {
-          handle: input.handle,
+          handle,
           email: {
-            not: input.email
+            not: normalizedEmail
           }
         }
       });
@@ -146,19 +231,11 @@ export const profileRouter = router({
 
       const passwordHash = await bcrypt.hash(input.password, 12);
 
-      const user = await ctx.prisma.user.upsert({
-        where: { email: input.email },
-        update: {
+      const user = await ctx.prisma.user.create({
+        data: {
+          email: normalizedEmail,
           name: fullName,
-          handle: input.handle,
-          birthdate,
-          bio: input.headline ?? null,
-          passwordHash
-        },
-        create: {
-          email: input.email,
-          name: fullName,
-          handle: input.handle,
+          handle,
           birthdate,
           bio: input.headline ?? null,
           image: null,

@@ -7,6 +7,7 @@ import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { signOut } from "next-auth/react";
 import { useCurrentUser } from "@/hooks/use-current-user";
+import { UserSearch } from "./user-search";
 
 const primaryLinks = [
   { href: "/dashboard", label: "Feed" },
@@ -28,7 +29,7 @@ export function SiteHeader() {
 
   return (
     <header className="fixed inset-x-0 top-0 z-40 border-b border-white/12 bg-slate-950/80 shadow-[0_12px_48px_rgba(15,23,42,0.45)] backdrop-blur-2xl">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between px-4 sm:px-6 lg:px-8">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-4 px-4 sm:px-6 lg:px-8 justify-between">
         <Link
           href="/"
           className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-sm font-semibold text-white transition hover:bg-white/10"
@@ -39,23 +40,27 @@ export function SiteHeader() {
           CircleCast
         </Link>
 
-        <nav className="hidden items-center gap-6 text-sm font-medium text-slate-200 md:flex">
-          {navLinks.map((link) => {
-            const isActive =
-              pathname === link.href || (pathname?.startsWith(link.href) ?? false);
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={`transition ${
-                  isActive ? "text-white" : "text-slate-300 hover:text-white/80"
-                }`}
-              >
-                {link.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <div className="flex flex-1 items-center justify-center gap-6 min-w-0">
+          <nav className="hidden items-center gap-6 text-sm font-medium text-slate-200 md:flex">
+            {navLinks.map((link) => {
+              const isActive =
+                pathname === link.href || (pathname?.startsWith(link.href) ?? false);
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={`transition ${
+                    isActive ? "text-white" : "text-slate-300 hover:text-white/80"
+                  }`}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <UserSearch />
+        </div>
 
         <div className="flex items-center gap-3">
           {user.isAuthenticated ? (
@@ -117,7 +122,10 @@ export function SiteHeader() {
 
       {mobileOpen ? (
         <div className="border-t border-white/12 bg-slate-950/95 md:hidden">
-          <nav className="mx-auto flex w-full max-w-6xl flex-col gap-1 px-6 py-4 text-sm font-medium text-slate-200">
+          <div className="mx-auto flex w-full max-w-6xl flex-col gap-3 px-6 py-4 text-sm font-medium text-slate-200">
+            <UserSearch variant="mobile" onResultSelected={closeMobileMenu} />
+
+            <nav className="flex flex-col gap-1">
             {navLinks.map((link) => {
               const isActive =
                 pathname === link.href || (pathname?.startsWith(link.href) ?? false);
@@ -164,7 +172,8 @@ export function SiteHeader() {
                 </Link>
               </div>
             )}
-          </nav>
+            </nav>
+          </div>
         </div>
       ) : null}
     </header>
