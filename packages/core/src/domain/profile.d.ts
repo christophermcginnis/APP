@@ -120,6 +120,47 @@ export declare const creatorSummarySchema: z.ZodObject<{
     followers: number;
     avatarUrl?: string | undefined;
 }>;
+export declare const creatorNotificationSchema: z.ZodObject<{
+    id: z.ZodString;
+    type: z.ZodLiteral<"follow">;
+    createdAt: z.ZodString;
+    follower: z.ZodObject<{
+        id: z.ZodString;
+        name: z.ZodString;
+        handle: z.ZodOptional<z.ZodString>;
+        avatarUrl: z.ZodOptional<z.ZodString>;
+    }, "strip", z.ZodTypeAny, {
+        id: string;
+        name: string;
+        handle?: string | undefined;
+        avatarUrl?: string | undefined;
+    }, {
+        id: string;
+        name: string;
+        handle?: string | undefined;
+        avatarUrl?: string | undefined;
+    }>;
+}, "strip", z.ZodTypeAny, {
+    id: string;
+    type: "follow";
+    createdAt: string;
+    follower: {
+        id: string;
+        name: string;
+        handle?: string | undefined;
+        avatarUrl?: string | undefined;
+    };
+}, {
+    id: string;
+    type: "follow";
+    createdAt: string;
+    follower: {
+        id: string;
+        name: string;
+        handle?: string | undefined;
+        avatarUrl?: string | undefined;
+    };
+}>;
 export declare const profileOverviewSchema: z.ZodObject<{
     id: z.ZodString;
     name: z.ZodString;
@@ -483,4 +524,5 @@ export type CreatorCircleSummary = z.infer<typeof creatorCircleSummarySchema>;
 export type CreatorTestimonial = z.infer<typeof creatorTestimonialSchema>;
 export type CreatorHighlight = z.infer<typeof creatorHighlightSchema>;
 export type CreatorProfile = z.infer<typeof creatorProfileSchema>;
+export type CreatorNotification = z.infer<typeof creatorNotificationSchema>;
 //# sourceMappingURL=profile.d.ts.map

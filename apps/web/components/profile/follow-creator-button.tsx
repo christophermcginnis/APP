@@ -26,6 +26,8 @@ export function FollowCreatorButton({ handle, isFollowing: initialIsFollowing }:
     [handle, user.id, user.isAuthenticated]
   );
 
+  const followerId = user.isAuthenticated ? user.id : undefined;
+
   const followMutation = trpc.profile.followCreator.useMutation({
     onMutate: async ({ follow }) => {
       const nextState = follow ?? !isFollowing;
@@ -59,7 +61,12 @@ export function FollowCreatorButton({ handle, isFollowing: initialIsFollowing }:
     },
     onSettled: () => {
       utils.profile.creatorByHandle.invalidate(viewerKey);
-      utils.profile.following.invalidate();
+      if (followerId) {
+        utils.profile.following.invalidate({ followerId });
+        utils.profile.overview.invalidate({ userId: followerId });
+      } else {
+        utils.profile.following.invalidate();
+      }
     }
   });
 

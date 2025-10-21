@@ -52,6 +52,18 @@ export const creatorSummarySchema = z.object({
   status: z.string()
 });
 
+export const creatorNotificationSchema = z.object({
+  id: z.string(),
+  type: z.literal("follow"),
+  createdAt: z.string(),
+  follower: z.object({
+    id: z.string(),
+    name: z.string(),
+    handle: z.string().optional(),
+    avatarUrl: z.string().url().optional()
+  })
+});
+
 export const profileOverviewSchema = z.object({
   id: z.string(),
   name: z.string(),
@@ -112,3 +124,4 @@ export type CreatorCircleSummary = z.infer<typeof creatorCircleSummarySchema>;
 export type CreatorTestimonial = z.infer<typeof creatorTestimonialSchema>;
 export type CreatorHighlight = z.infer<typeof creatorHighlightSchema>;
 export type CreatorProfile = z.infer<typeof creatorProfileSchema>;
+export type CreatorNotification = z.infer<typeof creatorNotificationSchema>;
