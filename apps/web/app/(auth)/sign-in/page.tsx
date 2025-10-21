@@ -13,19 +13,24 @@ import { useRouter } from "next/navigation";
 
 export default function SignInPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [magicEmail, setMagicEmail] = useState("");
+  const [credentialsEmail, setCredentialsEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [pending, setPending] = useState(false);
+  const [pendingForm, setPendingForm] = useState<"magic" | "credentials" | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  const magicPending = pendingForm === "magic";
+  const credentialsPending = pendingForm === "credentials";
+
   async function handleEmailSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
+    setPendingForm("magic");
     setMessage(null);
     setError(null);
 
     try {
+      const email = magicEmail.trim().toLowerCase();
       const result = await signIn("email", {
         email,
         redirect: false,
@@ -41,17 +46,18 @@ export default function SignInPage() {
       console.error(err);
       setError("Something went wrong. Please try again.");
     } finally {
-      setPending(false);
+      setPendingForm(null);
     }
   }
 
   async function handleCredentialsSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    setPending(true);
+    setPendingForm("credentials");
     setMessage(null);
     setError(null);
 
     try {
+      const email = credentialsEmail.trim().toLowerCase();
       const result = await signIn("credentials", {
         email,
         password,
@@ -68,7 +74,7 @@ export default function SignInPage() {
       console.error(err);
       setError("Something went wrong. Please try again.");
     } finally {
-      setPending(false);
+      setPendingForm(null);
     }
   }
 
@@ -86,7 +92,7 @@ export default function SignInPage() {
           </h1>
           <p className="mt-2 text-sm text-white/70">
             Choose how you'd like to sign in below. Magic links keep things password-free, or use
-            your dev credentials while we're setting up providers.
+            your email and password for an instant sign-in.
           </p>
 
           <div className="mt-10 grid gap-8">
@@ -99,18 +105,18 @@ export default function SignInPage() {
                 <input
                   type="email"
                   required
-                  value={email}
-                  onChange={(event) => setEmail(event.target.value)}
+                  value={magicEmail}
+                  onChange={(event) => setMagicEmail(event.target.value)}
                   placeholder="you@example.com"
                   className="mt-2 w-full rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-base text-white outline-none transition focus:border-white/60 focus:bg-white/15"
                 />
               </label>
               <button
                 type="submit"
-                disabled={pending}
+                disabled={magicPending}
                 className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-gradient-to-r from-indigo-400 via-sky-400 to-emerald-400 px-4 py-3 text-sm font-semibold text-slate-900 transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-75"
               >
-                {pending ? (
+                {magicPending ? (
                   <>
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Sending magic link…
@@ -128,16 +134,17 @@ export default function SignInPage() {
               <div className="absolute inset-0 rounded-3xl border border-white/10" aria-hidden />
               <div className="relative grid gap-4 rounded-3xl bg-white/5 px-6 py-6">
                 <h2 className="text-sm font-semibold uppercase tracking-[0.2em] text-white/50">
-                  Dev credentials
+                  Password sign-in
                 </h2>
                 <form onSubmit={handleCredentialsSubmit} className="space-y-4">
                   <label className="block text-sm font-medium text-white/80">
                     Email
                     <input
                       type="email"
-                      value={email}
-                      onChange={(event) => setEmail(event.target.value)}
-                      placeholder="dev@circlecast.local"
+                      required
+                      value={credentialsEmail}
+                      onChange={(event) => setCredentialsEmail(event.target.value)}
+                      placeholder="you@example.com"
                       className="mt-2 w-full rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-base text-white outline-none transition focus:border-white/60 focus:bg-white/15"
                     />
                   </label>
@@ -145,18 +152,19 @@ export default function SignInPage() {
                     Password
                     <input
                       type="password"
+                      required
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
-                      placeholder="letmein"
+                      placeholder="••••••••"
                       className="mt-2 w-full rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-base text-white outline-none transition focus:border-white/60 focus:bg-white/15"
                     />
                   </label>
                   <button
                     type="submit"
-                    disabled={pending}
+                    disabled={credentialsPending}
                     className="inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-semibold text-white transition hover:border-white/40 hover:bg-white/20 disabled:cursor-not-allowed"
                   >
-                    {pending ? (
+                    {credentialsPending ? (
                       <>
                         <Loader2 className="h-4 w-4 animate-spin" />
                         Verifying…
@@ -164,7 +172,7 @@ export default function SignInPage() {
                     ) : (
                       <>
                         <LockKeyhole className="h-4 w-4 text-emerald-300" />
-                        Sign in with dev credentials
+                        Sign in with password
                       </>
                     )}
                   </button>

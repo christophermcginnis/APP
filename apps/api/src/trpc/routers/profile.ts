@@ -124,15 +124,30 @@ export const profileRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const normalizedEmail = input.email.trim().toLowerCase();
       const birthdate = input.birthdate ? new Date(input.birthdate) : null;
 
-      const fullName = `${input.firstName.trim()} ${input.lastName.trim()}`.trim();
+      const firstName = input.firstName.trim();
+      const lastName = input.lastName.trim();
+      const handle = input.handle.trim();
+      const fullName = `${firstName} ${lastName}`.trim();
+
+      const existingEmailOwner = await ctx.prisma.user.findUnique({
+        where: { email: normalizedEmail }
+      });
+
+      if (existingEmailOwner) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "An account with that email already exists. Please sign in instead."
+        });
+      }
 
       const existingHandleOwner = await ctx.prisma.user.findFirst({
         where: {
-          handle: input.handle,
+          handle,
           email: {
-            not: input.email
+            not: normalizedEmail
           }
         }
       });
@@ -146,19 +161,11 @@ export const profileRouter = router({
 
       const passwordHash = await bcrypt.hash(input.password, 12);
 
-      const user = await ctx.prisma.user.upsert({
-        where: { email: input.email },
-        update: {
+      const user = await ctx.prisma.user.create({
+        data: {
+          email: normalizedEmail,
           name: fullName,
-          handle: input.handle,
-          birthdate,
-          bio: input.headline ?? null,
-          passwordHash
-        },
-        create: {
-          email: input.email,
-          name: fullName,
-          handle: input.handle,
+          handle,
           birthdate,
           bio: input.headline ?? null,
           image: null,
