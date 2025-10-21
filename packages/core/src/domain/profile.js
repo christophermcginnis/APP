@@ -44,6 +44,17 @@ export const creatorSummarySchema = z.object({
     followers: z.number().int().nonnegative(),
     status: z.string()
 });
+export const creatorNotificationSchema = z.object({
+    id: z.string(),
+    type: z.literal("follow"),
+    createdAt: z.string(),
+    follower: z.object({
+        id: z.string(),
+        name: z.string(),
+        handle: z.string().optional(),
+        avatarUrl: z.string().url().optional()
+    })
+});
 export const profileOverviewSchema = z.object({
     id: z.string(),
     name: z.string(),
@@ -53,6 +64,7 @@ export const profileOverviewSchema = z.object({
     location: z.string(),
     availability: z.string(),
     expertise: z.array(z.string()),
+    birthdate: z.string().optional(),
     circles: z.array(profileCircleSummarySchema),
     highlights: z.array(profileHighlightSchema),
     companionFocus: z.array(profileTaskSchema),

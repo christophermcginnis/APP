@@ -170,6 +170,7 @@ export declare const profileOverviewSchema: z.ZodObject<{
     location: z.ZodString;
     availability: z.ZodString;
     expertise: z.ZodArray<z.ZodString, "many">;
+    birthdate: z.ZodOptional<z.ZodString>;
     circles: z.ZodArray<z.ZodObject<{
         id: z.ZodString;
         name: z.ZodString;
@@ -287,6 +288,7 @@ export declare const profileOverviewSchema: z.ZodObject<{
     }[];
     availability: string;
     expertise: string[];
+    birthdate?: string | undefined;
     highlights: {
         id: string;
         title: string;
@@ -334,6 +336,7 @@ export declare const profileOverviewSchema: z.ZodObject<{
     }[];
     availability: string;
     expertise: string[];
+    birthdate?: string | undefined;
     highlights: {
         id: string;
         title: string;
