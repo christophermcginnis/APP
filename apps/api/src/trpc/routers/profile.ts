@@ -4,11 +4,11 @@ import {
   profileOverviewSchema,
   profileSearchResultSchema
 } from "@circlecast/core";
-import type { CreatorProfile } from "@circlecast/core";
+import type { CreatorProfile, CreatorSummary } from "@circlecast/core";
 import { TRPCError } from "@trpc/server";
 import bcrypt from "bcryptjs";
 import { z } from "zod";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 import {
   creatorProfilesMock,
@@ -127,7 +127,8 @@ function buildCreatorProfileFromUser(user: UserWithCircles): CreatorProfile {
         : `${displayName} is building calm creator circles on CircleCast.`,
     featuredCircles,
     testimonials,
-    highlights: highlights.slice(0, 6)
+    highlights: highlights.slice(0, 6),
+    isFollowing: false
   };
 }
 
@@ -150,6 +151,128 @@ function findMockCreatorProfile(handle: string): CreatorProfile | undefined {
   );
 
   return entry?.[1];
+}
+
+const creatorFollowers = new Map<string, Set<string>>();
+const followerFollowing = new Map<string, Set<string>>();
+
+const creatorSummaryLookup = new Map<string, CreatorSummary>();
+followingCreatorsMock.forEach((summary) => {
+  creatorSummaryLookup.set(summary.handle.toLowerCase(), summary);
+});
+
+function buildDisplayNameFromHandle(handle: string) {
+  return handle
+    .split("-")
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function createSummaryFromProfile(
+  profile: CreatorProfile,
+  overrideName?: string
+): CreatorSummary {
+  const displayName = overrideName ?? buildDisplayNameFromHandle(profile.handle);
+  const primaryCircle = profile.featuredCircles[0];
+  const followerCount = creatorFollowers.get(profile.handle.toLowerCase())?.size ?? 0;
+
+  return {
+    handle: profile.handle,
+    name: displayName.length > 0 ? displayName : `@${profile.handle}`,
+    avatarUrl: undefined,
+    headline: profile.headline,
+    focus: primaryCircle?.theme ?? "CircleCast creator",
+    circles: profile.featuredCircles.length,
+    followers: followerCount,
+    status: primaryCircle?.highlight ?? "Preparing new CircleCast experiences."
+  };
+}
+
+async function findCreatorSummary(
+  handle: string,
+  prisma: PrismaClient
+): Promise<CreatorSummary | undefined> {
+  const key = handle.toLowerCase();
+  const existingSummary = creatorSummaryLookup.get(key);
+  if (existingSummary) {
+    const currentFollowers = creatorFollowers.get(key)?.size ?? existingSummary.followers;
+    if (currentFollowers !== existingSummary.followers) {
+      const updated: CreatorSummary = { ...existingSummary, followers: currentFollowers };
+      creatorSummaryLookup.set(key, updated);
+      return { ...updated };
+    }
+
+    return { ...existingSummary };
+  }
+
+  const mockProfile = findMockCreatorProfile(handle);
+  if (mockProfile) {
+    const summary = createSummaryFromProfile(mockProfile);
+    creatorSummaryLookup.set(summary.handle.toLowerCase(), summary);
+    return { ...summary };
+  }
+
+  const user = await prisma.user.findFirst({
+    where: {
+      handle: {
+        equals: handle,
+        mode: "insensitive"
+      }
+    },
+    select: {
+      handle: true,
+      name: true,
+      bio: true,
+      image: true,
+      circles: {
+        select: {
+          id: true,
+          name: true,
+          focusArea: true
+        }
+      }
+    }
+  });
+
+  if (!user?.handle) {
+    return undefined;
+  }
+
+  const displayName = user.name?.trim() && user.name.trim().length > 0
+    ? user.name.trim()
+    : buildDisplayNameFromHandle(user.handle);
+
+  const primaryCircle = user.circles[0];
+
+  const summary: CreatorSummary = {
+    handle: user.handle,
+    name: displayName.length > 0 ? displayName : `@${user.handle}`,
+    avatarUrl: user.image ?? undefined,
+    headline:
+      user.bio?.trim() && user.bio.trim().length > 0
+        ? user.bio.trim()
+        : `${displayName} is building calm creator circles on CircleCast.`,
+    focus: primaryCircle?.focusArea ?? "CircleCast creator",
+    circles: user.circles.length,
+    followers: creatorFollowers.get(user.handle.toLowerCase())?.size ?? 0,
+    status: primaryCircle?.name
+      ? `Curating ${primaryCircle.name}`
+      : "Preparing new CircleCast experiences."
+  };
+
+  creatorSummaryLookup.set(summary.handle.toLowerCase(), summary);
+
+  return { ...summary };
+}
+
+function getIsFollowing(handle: string, viewerId?: string) {
+  if (!viewerId) {
+    return false;
+  }
+
+  const followers = creatorFollowers.get(handle.toLowerCase());
+  return followers?.has(viewerId) ?? false;
 }
 
 export const profileRouter = router({
@@ -241,8 +364,76 @@ export const profileRouter = router({
       return base;
     }),
   following: publicProcedure
+    .input(z.object({ followerId: z.string().uuid() }))
     .output(z.array(creatorSummarySchema))
-    .query(() => followingCreatorsMock),
+    .query(async ({ ctx, input }) => {
+      const handles = followerFollowing.get(input.followerId);
+
+      if (!handles || handles.size === 0) {
+        return [];
+      }
+
+      const summaries: CreatorSummary[] = [];
+
+      for (const handle of handles) {
+        const summary = await findCreatorSummary(handle, ctx.prisma);
+        if (summary) {
+          summaries.push(summary);
+        }
+      }
+
+      return summaries;
+    }),
+  followCreator: publicProcedure
+    .input(
+      z.object({
+        handle: z.string(),
+        followerId: z.string().uuid(),
+        follow: z.boolean().optional()
+      })
+    )
+    .output(
+      z.object({
+        handle: z.string(),
+        isFollowing: z.boolean()
+      })
+    )
+    .mutation(async ({ input }) => {
+      const normalizedHandle = input.handle.trim();
+      const key = normalizedHandle.toLowerCase();
+      const followerId = input.followerId;
+      const followers = creatorFollowers.get(key) ?? new Set<string>();
+      const following = followerFollowing.get(followerId) ?? new Set<string>();
+      const currentlyFollowing = followers.has(followerId);
+      const nextState = input.follow ?? !currentlyFollowing;
+
+      if (nextState) {
+        followers.add(followerId);
+        following.add(key);
+      } else {
+        followers.delete(followerId);
+        following.delete(key);
+      }
+
+      if (followers.size > 0) {
+        creatorFollowers.set(key, followers);
+      } else {
+        creatorFollowers.delete(key);
+      }
+
+      if (following.size > 0) {
+        followerFollowing.set(followerId, following);
+      } else {
+        followerFollowing.delete(followerId);
+      }
+
+      await new Promise((resolve) => setTimeout(resolve, 150));
+
+      return {
+        handle: normalizedHandle,
+        isFollowing: followers.has(followerId)
+      };
+    }),
   search: publicProcedure
     .input(
       z.object({
@@ -387,16 +578,18 @@ export const profileRouter = router({
   creatorByHandle: publicProcedure
     .input(
       z.object({
-        handle: z.string()
+        handle: z.string(),
+        viewerId: z.string().uuid().optional()
       })
     )
     .output(creatorProfileSchema)
     .query(async ({ ctx, input }) => {
       const normalizedHandle = input.handle.trim();
+      const isFollowing = getIsFollowing(normalizedHandle, input.viewerId);
 
       const mockProfile = findMockCreatorProfile(normalizedHandle);
       if (mockProfile) {
-        return mockProfile;
+        return { ...mockProfile, isFollowing };
       }
 
       const user = await ctx.prisma.user.findFirst({
@@ -423,6 +616,7 @@ export const profileRouter = router({
         });
       }
 
-      return buildCreatorProfileFromUser(user);
+      const profile = buildCreatorProfileFromUser(user);
+      return { ...profile, isFollowing };
     })
 });

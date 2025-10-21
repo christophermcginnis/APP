@@ -280,7 +280,8 @@ function buildCreatorProfile(entry: CreatorEntry, index: number): CreatorProfile
         title: "Session summary: Turning insights into action",
         description: `Companion summarised member breakthroughs and queued tasks for the next ${entry.focus.toLowerCase()} sprint.`
       }
-    ]
+    ],
+    isFollowing: false
   };
 }
 
