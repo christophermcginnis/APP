@@ -162,6 +162,9 @@ export const authOptions = {
             email: {
               equals: email,
               mode: "insensitive"
+            },
+            passwordHash: {
+              not: null
             }
           }
         });
