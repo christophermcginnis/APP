@@ -147,7 +147,10 @@ export function SiteHeader() {
                   const willOpen = !notificationsOpen;
 
                   if (willOpen) {
-                    void refetchNotifications();
+                    if (notifications.length === 0) {
+                      void refetchNotifications();
+                    }
+
                     if (notifications.length > 0) {
                       setHasViewedNotifications(true);
                     }
