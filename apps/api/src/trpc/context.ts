@@ -24,6 +24,23 @@ const SESSION_COOKIE_NAMES = [
   "authjs.session-token"
 ] as const;
 
+function resolveAuthSecret(request: FastifyRequest): string | null {
+  const candidateSecrets = [
+    request.server.env?.NEXTAUTH_SECRET,
+    request.server.env?.AUTH_SECRET,
+    process.env.NEXTAUTH_SECRET,
+    process.env.AUTH_SECRET
+  ];
+
+  for (const secret of candidateSecrets) {
+    if (secret && secret.trim().length > 0) {
+      return secret;
+    }
+  }
+
+  return null;
+}
+
 function extractBearerToken(request: FastifyRequest): string | null {
   const authorization = request.headers.authorization;
 
@@ -103,10 +120,12 @@ async function resolveSession(request: FastifyRequest): Promise<Session | null> 
     return null;
   }
 
-  const secret = request.server.env?.NEXTAUTH_SECRET ?? process.env.NEXTAUTH_SECRET;
+  const secret = resolveAuthSecret(request);
 
   if (!secret) {
-    request.log.warn("NEXTAUTH_SECRET is not configured; rejecting session token.");
+    request.log.warn(
+      "No Auth.js secret configured; rejecting session token. Set NEXTAUTH_SECRET or AUTH_SECRET to enable session verification."
+    );
     return null;
   }
 

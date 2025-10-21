@@ -1,5 +1,6 @@
 "use client";
 
+import { TRPCClientError } from "@trpc/client";
 import clsx from "clsx";
 import { useEffect, useMemo, useState } from "react";
 
@@ -44,12 +45,16 @@ export function FollowCreatorButton({ handle, isFollowing: initialIsFollowing }:
 
       return { previousProfile, previousIsFollowing: isFollowing };
     },
-    onError: (_error, _variables, context) => {
+    onError: (error, _variables, context) => {
       if (context?.previousProfile) {
         utils.profile.creatorByHandle.setData(viewerKey, context.previousProfile);
       }
       if (context?.previousIsFollowing !== undefined) {
         setIsFollowing(context.previousIsFollowing);
+      }
+      if (error instanceof TRPCClientError && error.data?.code === "UNAUTHORIZED") {
+        setError("Please sign in to follow creators.");
+        return;
       }
       setError("We couldn't update your follow preference. Please try again.");
     },

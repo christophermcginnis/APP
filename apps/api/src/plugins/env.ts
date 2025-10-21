@@ -9,7 +9,8 @@ const envSchema = z.object({
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   DATABASE_URL: z.string(),
-  NEXTAUTH_SECRET: z.string().optional()
+  NEXTAUTH_SECRET: z.string().optional(),
+  AUTH_SECRET: z.string().optional()
 });
 
 declare module "fastify" {
