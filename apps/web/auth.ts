@@ -4,6 +4,7 @@ import type { NextAuthConfig } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
+import bcrypt from "bcryptjs";
 
 import { prismaAdapter } from "@/lib/auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
@@ -75,75 +76,114 @@ export const authOptions = {
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        const email = credentials?.email as string | undefined;
-        const password = credentials?.password as string | undefined;
+        const emailInput = credentials?.email;
+        const passwordInput = credentials?.password;
 
-        if (email && password) {
-          if (
-            email === process.env.DEV_LOGIN_EMAIL &&
-            password === process.env.DEV_LOGIN_PASSWORD
-          ) {
-            const userRecord = await prisma.user.upsert({
-              where: { email },
-              update: {},
-              create: {
-                email,
-                name: "Developer Access",
-                handle: "dev-access"
+        const email = typeof emailInput === "string" ? emailInput.trim() : undefined;
+        const password = typeof passwordInput === "string" ? passwordInput : undefined;
+
+        if (!email || !password) {
+          return null;
+        }
+
+        const devEmail = process.env.DEV_LOGIN_EMAIL?.trim().toLowerCase();
+        const devPassword = process.env.DEV_LOGIN_PASSWORD;
+
+        const normalizedInputEmail = email.toLowerCase();
+
+        if (
+          devEmail &&
+          devPassword &&
+          normalizedInputEmail === devEmail &&
+          password === devPassword
+        ) {
+          const userRecord = await prisma.user.upsert({
+            where: { email: devEmail },
+            update: {},
+            create: {
+              email: devEmail,
+              name: "Developer Access",
+              handle: "dev-access"
+            }
+          });
+
+          const user: NextAuthUser & { handle?: string | null } = {
+            id: userRecord.id,
+            email: userRecord.email ?? undefined,
+            name: userRecord.name ?? undefined,
+            handle: userRecord.handle ?? undefined
+          };
+
+          const existingCircleCount = await prisma.circle.count({
+            where: { ownerId: userRecord.id }
+          });
+
+          if (existingCircleCount === 0) {
+            const circle = await prisma.circle.create({
+              data: {
+                name: "Dev Circle",
+                focusArea: "Testing flows",
+                cadence: "Weekly",
+                access: "OPEN",
+                members: 12,
+                companionTone: "Supportive, fast iterations",
+                ownerId: userRecord.id
               }
             });
 
-            const user: NextAuthUser = {
-              id: userRecord.id,
-              email: userRecord.email ?? undefined,
-              name: userRecord.name ?? undefined
-            };
-
-            const existingCircleCount = await prisma.circle.count({
-              where: { ownerId: userRecord.id }
+            await prisma.circleSession.create({
+              data: {
+                circleId: circle.id,
+                scheduledFor: new Date(Date.now() + 1000 * 60 * 60 * 24),
+                topic: "Roadmap sync",
+                hostId: userRecord.id
+              }
             });
 
-            if (existingCircleCount === 0) {
-              const circle = await prisma.circle.create({
-                data: {
-                  name: "Dev Circle",
-                  focusArea: "Testing flows",
-                  cadence: "Weekly",
-                  access: "OPEN",
-                  members: 12,
-                  companionTone: "Supportive, fast iterations",
-                  ownerId: userRecord.id
+            await prisma.companionTask.create({
+              data: {
+                circleId: circle.id,
+                title: "Draft weekly summary",
+                kind: "SUMMARY",
+                status: "IN_PROGRESS",
+                etaMinutes: 10,
+                payload: {
+                  insight: "Summarise testing activity and next steps."
                 }
-              });
-
-              await prisma.circleSession.create({
-                data: {
-                  circleId: circle.id,
-                  scheduledFor: new Date(Date.now() + 1000 * 60 * 60 * 24),
-                  topic: "Roadmap sync",
-                  hostId: userRecord.id
-                }
-              });
-
-              await prisma.companionTask.create({
-                data: {
-                  circleId: circle.id,
-                  title: "Draft weekly summary",
-                  kind: "SUMMARY",
-                  status: "IN_PROGRESS",
-                  etaMinutes: 10,
-                  payload: {
-                    insight: "Summarise testing activity and next steps."
-                  }
-                }
-              });
-            }
-
-            return user;
+              }
+            });
           }
+
+          return user;
         }
 
-        return null;
+        const userRecord = await prisma.user.findFirst({
+          where: {
+            email: {
+              equals: email,
+              mode: "insensitive"
+            }
+          }
+        });
+
+        if (!userRecord?.passwordHash) {
+          return null;
+        }
+
+        const passwordMatches = await bcrypt.compare(password, userRecord.passwordHash);
+
+        if (!passwordMatches) {
+          return null;
+        }
+
+        const user: NextAuthUser & { handle?: string | null } = {
+          id: userRecord.id,
+          email: userRecord.email ?? undefined,
+          name: userRecord.name ?? undefined,
+          handle: userRecord.handle ?? undefined
+        };
+
+        return user;
       }
     }),
     GoogleProvider({

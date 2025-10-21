@@ -73,6 +73,25 @@ export declare const profileAgendaItemSchema: z.ZodObject<{
     title: string;
     time: string;
 }>;
+export declare const profileSearchResultSchema: z.ZodObject<{
+    id: z.ZodString;
+    name: z.ZodString;
+    handle: z.ZodString;
+    avatarUrl: z.ZodOptional<z.ZodString>;
+    headline: z.ZodOptional<z.ZodString>;
+}, "strip", z.ZodTypeAny, {
+    id: string;
+    name: string;
+    handle: string;
+    avatarUrl?: string | undefined;
+    headline?: string | undefined;
+}, {
+    id: string;
+    name: string;
+    handle: string;
+    avatarUrl?: string | undefined;
+    headline?: string | undefined;
+}>;
 export declare const creatorSummarySchema: z.ZodObject<{
     handle: z.ZodString;
     name: z.ZodString;
@@ -454,6 +473,7 @@ export type ProfileHighlight = z.infer<typeof profileHighlightSchema>;
 export type ProfileTask = z.infer<typeof profileTaskSchema>;
 export type ProfileStat = z.infer<typeof profileStatSchema>;
 export type ProfileAgendaItem = z.infer<typeof profileAgendaItemSchema>;
+export type ProfileSearchResult = z.infer<typeof profileSearchResultSchema>;
 export type CreatorSummary = z.infer<typeof creatorSummarySchema>;
 export type ProfileOverview = z.infer<typeof profileOverviewSchema>;
 export type CreatorCircleSummary = z.infer<typeof creatorCircleSummarySchema>;

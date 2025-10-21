@@ -33,6 +33,14 @@ export const profileAgendaItemSchema = z.object({
   time: z.string()
 });
 
+export const profileSearchResultSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  handle: z.string(),
+  avatarUrl: z.string().url().optional(),
+  headline: z.string().optional()
+});
+
 export const creatorSummarySchema = z.object({
   handle: z.string(),
   name: z.string(),
@@ -96,6 +104,7 @@ export type ProfileHighlight = z.infer<typeof profileHighlightSchema>;
 export type ProfileTask = z.infer<typeof profileTaskSchema>;
 export type ProfileStat = z.infer<typeof profileStatSchema>;
 export type ProfileAgendaItem = z.infer<typeof profileAgendaItemSchema>;
+export type ProfileSearchResult = z.infer<typeof profileSearchResultSchema>;
 export type CreatorSummary = z.infer<typeof creatorSummarySchema>;
 export type ProfileOverview = z.infer<typeof profileOverviewSchema>;
 export type CreatorCircleSummary = z.infer<typeof creatorCircleSummarySchema>;
