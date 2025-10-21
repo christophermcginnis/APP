@@ -28,8 +28,8 @@ export function SiteHeader() {
   }
 
   return (
-    <header className="fixed inset-x-0 top-0 z-40 border-b border-white/12 bg-slate-950/80 shadow-[0_12px_48px_rgba(15,23,42,0.45)] backdrop-blur-2xl">
-      <div className="mx-auto flex h-16 w-full max-w-6xl items-center gap-4 px-4 sm:px-6 lg:px-8 justify-between">
+    <header className="sticky top-0 z-40 w-full border-b border-white/12 bg-slate-950/80 shadow-[0_12px_48px_rgba(15,23,42,0.45)] backdrop-blur-2xl">
+      <div className="mx-auto flex h-16 w-full max-w-6xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
         <Link
           href="/"
           className="inline-flex items-center gap-2 rounded-full bg-white/5 px-3 py-1 text-sm font-semibold text-white transition hover:bg-white/10"
