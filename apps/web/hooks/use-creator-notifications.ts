@@ -13,10 +13,14 @@ export function useCreatorNotifications() {
       }
     : undefined;
 
+  const shouldFetchNotifications = user.isAuthenticated;
+
   return trpc.profile.notifications.useQuery(input, {
-    enabled: user.isAuthenticated,
+    enabled: shouldFetchNotifications,
     retry: false,
     refetchOnWindowFocus: false,
+    refetchInterval: shouldFetchNotifications ? 5_000 : false,
+    refetchIntervalInBackground: true,
     staleTime: 0,
     placeholderData: []
   });
