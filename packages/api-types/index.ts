@@ -15,6 +15,7 @@ import {
 const t = initTRPC.context<Record<string, never>>().create();
 const router = t.router;
 const publicProcedure = t.procedure;
+const protectedProcedure = t.procedure;
 
 const circleListResponseSchema = z.object({
   circles: z.array(circleSchema)
@@ -158,11 +159,10 @@ const profileRouter = router({
     )
     .output(creatorProfileSchema)
     .query(() => ({} as z.infer<typeof creatorProfileSchema>)),
-  followCreator: publicProcedure
+  followCreator: protectedProcedure
     .input(
       z.object({
         handle: z.string(),
-        followerId: z.string().uuid(),
         follow: z.boolean().optional()
       })
     )

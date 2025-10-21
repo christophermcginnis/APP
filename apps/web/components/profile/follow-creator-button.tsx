@@ -82,7 +82,6 @@ export function FollowCreatorButton({ handle, isFollowing: initialIsFollowing }:
     const nextState = !isFollowing;
     followMutation.mutate({
       handle,
-      followerId: user.id,
       follow: nextState
     });
   }

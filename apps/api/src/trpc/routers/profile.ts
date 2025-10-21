@@ -22,7 +22,7 @@ import {
   followingCreatorsMock,
   profileOverviewMock
 } from "../../data/profile.js";
-import { publicProcedure, router } from "../trpc.js";
+import { protectedProcedure, publicProcedure, router } from "../trpc.js";
 import type { TrpcContext } from "../context.js";
 
 type CircleWithDetails = Prisma.CircleGetPayload<{
@@ -415,11 +415,10 @@ export const profileRouter = router({
 
       return resolveCreatorSummaries(handles, ctx);
     }),
-  followCreator: publicProcedure
+  followCreator: protectedProcedure
     .input(
       z.object({
         handle: z.string(),
-        followerId: z.string().uuid(),
         follow: z.boolean().optional()
       })
     )
@@ -432,7 +431,7 @@ export const profileRouter = router({
     .mutation(async ({ ctx, input }) => {
       const normalizedHandle = input.handle.trim();
       const key = normalizedHandle.toLowerCase();
-      const followerId = input.followerId;
+      const followerId = ctx.session.user.id;
       const followers = creatorFollowers.get(key) ?? new Set<string>();
       const currentlyFollowing = followers.has(followerId);
       const nextState = input.follow ?? !currentlyFollowing;
