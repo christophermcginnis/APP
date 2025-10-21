@@ -23,7 +23,7 @@ export default function CreatorProfilePage({ params }: CreatorProfilePageProps) 
     error instanceof Error ? error.message : "Please try again shortly.";
 
   return (
-    <section className="space-y-10 text-white">
+    <section className="relative z-10 space-y-10 text-slate-100">
       {isLoading && !data ? (
         <div className="rounded-3xl border border-white/10 bg-white/6 px-6 py-4 text-sm text-white/70">
           Loading creator profile…
