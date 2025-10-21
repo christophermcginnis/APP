@@ -27,6 +27,13 @@ export const profileAgendaItemSchema = z.object({
     title: z.string(),
     time: z.string()
 });
+export const profileSearchResultSchema = z.object({
+    id: z.string(),
+    name: z.string(),
+    handle: z.string(),
+    avatarUrl: z.string().url().optional(),
+    headline: z.string().optional()
+});
 export const creatorSummarySchema = z.object({
     handle: z.string(),
     name: z.string(),

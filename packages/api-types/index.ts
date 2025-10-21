@@ -7,7 +7,8 @@ import {
   companionTaskSchema,
   creatorProfileSchema,
   creatorSummarySchema,
-  profileOverviewSchema
+  profileOverviewSchema,
+  profileSearchResultSchema
 } from "@circlecast/core";
 
 const t = initTRPC.context<Record<string, never>>().create();
@@ -108,6 +109,14 @@ const profileRouter = router({
   following: publicProcedure
     .output(z.array(creatorSummarySchema))
     .query(() => [] as Array<z.infer<typeof creatorSummarySchema>>),
+  search: publicProcedure
+    .input(
+      z.object({
+        query: z.string().min(2).max(100)
+      })
+    )
+    .output(z.array(profileSearchResultSchema))
+    .query(() => [] as Array<z.infer<typeof profileSearchResultSchema>>),
   register: publicProcedure
     .input(
       z.object({
