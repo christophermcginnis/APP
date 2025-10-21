@@ -159,11 +159,12 @@ const profileRouter = router({
     )
     .output(creatorProfileSchema)
     .query(() => ({} as z.infer<typeof creatorProfileSchema>)),
-  followCreator: protectedProcedure
+  followCreator: publicProcedure
     .input(
       z.object({
         handle: z.string(),
-        follow: z.boolean().optional()
+        follow: z.boolean().optional(),
+        followerId: z.string().uuid().optional()
       })
     )
     .output(

@@ -415,11 +415,12 @@ export const profileRouter = router({
 
       return resolveCreatorSummaries(handles, ctx);
     }),
-  followCreator: protectedProcedure
+  followCreator: publicProcedure
     .input(
       z.object({
         handle: z.string(),
-        follow: z.boolean().optional()
+        follow: z.boolean().optional(),
+        followerId: z.string().uuid().optional()
       })
     )
     .output(
@@ -431,7 +432,11 @@ export const profileRouter = router({
     .mutation(async ({ ctx, input }) => {
       const normalizedHandle = input.handle.trim();
       const key = normalizedHandle.toLowerCase();
-      const followerId = ctx.session.user.id;
+      const followerId = input.followerId ?? ctx.session?.user.id;
+
+      if (!followerId) {
+        throw new TRPCError({ code: "UNAUTHORIZED" });
+      }
       const followers = creatorFollowers.get(key) ?? new Set<string>();
       const currentlyFollowing = followers.has(followerId);
       const nextState = input.follow ?? !currentlyFollowing;
