@@ -9,6 +9,7 @@ type SignupFormState = {
   firstName: string;
   lastName: string;
   handle: string;
+  password: string;
   birthdate: string;
   headline: string;
 };
@@ -18,6 +19,7 @@ const initialState: SignupFormState = {
   firstName: "",
   lastName: "",
   handle: "",
+  password: "",
   birthdate: "",
   headline: ""
 };
@@ -66,6 +68,7 @@ export default function SignupPage() {
       firstName: formState.firstName,
       lastName: formState.lastName,
       handle: formState.handle,
+      password: formState.password,
       birthdate: birthdateIso,
       headline: formState.headline || undefined
     });
@@ -132,6 +135,19 @@ export default function SignupPage() {
               className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm shadow-sm focus:border-brand-400 focus:outline-none"
               placeholder="you@email.com"
               autoComplete="email"
+            />
+          </label>
+          <label className="block">
+            <span className="text-sm font-medium text-slate-700">Password</span>
+            <input
+              required
+              type="password"
+              value={formState.password}
+              onChange={updateField("password")}
+              className="mt-2 w-full rounded-2xl border border-slate-200 px-4 py-3 text-sm shadow-sm focus:border-brand-400 focus:outline-none"
+              placeholder="Create a secure password"
+              autoComplete="new-password"
+              minLength={8}
             />
           </label>
           <label className="block">
