@@ -24,6 +24,7 @@ export function SiteHeader() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [hasViewedNotifications, setHasViewedNotifications] = useState(false);
+  const [didManuallyOpenNotifications, setDidManuallyOpenNotifications] = useState(false);
   const notificationsContainerRef = useRef<HTMLDivElement | null>(null);
 
   const {
@@ -60,11 +61,30 @@ export function SiteHeader() {
   }, [unseenNotificationsCount]);
 
   useEffect(() => {
+    if (!user.isAuthenticated) {
+      setNotificationsOpen(false);
+      setHasViewedNotifications(false);
+      setDidManuallyOpenNotifications(false);
+      previousNotificationsCountRef.current = 0;
+    }
+  }, [user.isAuthenticated]);
+
+  useEffect(() => {
+    if (!notificationsOpen) {
+      setDidManuallyOpenNotifications(false);
+    }
+  }, [notificationsOpen]);
+
+  useEffect(() => {
     if (!notificationsOpen) {
       return;
     }
 
     if (notifications.length === 0) {
+      return;
+    }
+
+    if (!didManuallyOpenNotifications) {
       return;
     }
 
@@ -80,6 +100,7 @@ export function SiteHeader() {
       );
     }
   }, [
+    didManuallyOpenNotifications,
     hasViewedNotifications,
     markNotificationsAsSeen,
     markNotificationsAsSeen.isPending,
@@ -217,8 +238,14 @@ export function SiteHeader() {
                 onClick={() => {
                   const willOpen = !notificationsOpen;
 
-                  if (willOpen && notifications.length === 0) {
-                    void refetchNotifications();
+                  if (willOpen) {
+                    setDidManuallyOpenNotifications(true);
+
+                    if (notifications.length === 0) {
+                      void refetchNotifications();
+                    }
+                  } else {
+                    setDidManuallyOpenNotifications(false);
                   }
 
                   setNotificationsOpen(willOpen);
