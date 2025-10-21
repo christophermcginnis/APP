@@ -1,7 +1,19 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
-import { decode } from "next-auth/jwt";
-
 import { prisma } from "../lib/prisma.js";
+
+type JwtDecodeParams = {
+  token: string;
+  secret: string;
+  salt?: string;
+};
+
+type JwtPayload = {
+  sub?: string;
+  handle?: unknown;
+  [key: string]: unknown;
+};
+
+type JwtDecode = (params: JwtDecodeParams) => Promise<JwtPayload | null>;
 
 type Session = {
   user: {
@@ -16,6 +28,9 @@ export type TrpcContext = {
   reply: FastifyReply;
   session: Session | null;
 };
+
+let cachedJwtDecode: JwtDecode | null = null;
+let attemptedToLoadJwtDecode = false;
 
 const SESSION_COOKIE_NAMES = [
   "__Secure-next-auth.session-token",
@@ -129,8 +144,14 @@ async function resolveSession(request: FastifyRequest): Promise<Session | null> 
     return null;
   }
 
+  const decodeJwt = await loadJwtDecode(request);
+
+  if (!decodeJwt) {
+    return null;
+  }
+
   try {
-    const decoded = await decode({ token, secret });
+    const decoded = await decodeJwt({ token, secret });
     if (!decoded) {
       request.log.warn("Failed to verify session token signature.");
       return null;
@@ -151,6 +172,41 @@ async function resolveSession(request: FastifyRequest): Promise<Session | null> 
     request.log.warn({ err: error }, "Failed to decode session token");
     return null;
   }
+}
+
+async function loadJwtDecode(request: FastifyRequest): Promise<JwtDecode | null> {
+  if (cachedJwtDecode) {
+    return cachedJwtDecode;
+  }
+
+  if (attemptedToLoadJwtDecode) {
+    return null;
+  }
+
+  attemptedToLoadJwtDecode = true;
+
+  const candidates = ["@auth/core/jwt", "next-auth/jwt"] as const;
+
+  for (const specifier of candidates) {
+    try {
+      const mod = await import(specifier);
+      const candidate = (mod as { decode?: unknown }).decode;
+
+      if (typeof candidate === "function") {
+        cachedJwtDecode = candidate as JwtDecode;
+        request.log.debug({ provider: specifier }, "Loaded Auth.js JWT decoder");
+        return cachedJwtDecode;
+      }
+    } catch (error) {
+      request.log.debug({ err: error, provider: specifier }, "Failed to load Auth.js JWT decoder");
+    }
+  }
+
+  request.log.warn(
+    "Auth.js JWT helpers are not available; session tokens will not be processed. Install `@auth/core` or `next-auth` to enable session verification."
+  );
+
+  return null;
 }
 
 export async function createContext({
