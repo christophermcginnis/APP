@@ -113,7 +113,7 @@ function buildCreatorProfileFromUser(user: UserWithCircles): CreatorProfile {
     highlights.push({
       id: `${user.handle}-highlight`,
       title: "CircleCast update",
-      description: `${displayName} is preparing the first highlights—check back soon."
+      description: `${displayName} is preparing the first highlights—check back soon.`
     });
   }
 
