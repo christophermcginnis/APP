@@ -20,7 +20,6 @@
     "@fastify/websocket": "^10.0.1",
     "@prisma/client": "^6.17.1",
     "@trpc/server": "^10.45.2",
-    "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
     "fastify": "^4.27.2",
     "fastify-plugin": "^4.5.1",

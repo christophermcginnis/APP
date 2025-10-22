@@ -4,7 +4,7 @@ import type { NextAuthConfig } from "next-auth";
 import EmailProvider from "next-auth/providers/email";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
-import bcrypt from "bcryptjs";
+import { hashPassword, isLegacyBcryptHash, needsRehash, verifyPassword } from "@circlecast/core";
 
 import { prismaAdapter } from "@/lib/auth/prisma-adapter";
 import { prisma } from "@/lib/prisma";
@@ -156,10 +156,25 @@ export const authOptions = {
           return null;
         }
 
-        const passwordMatches = await bcrypt.compare(password, userRecord.passwordHash);
+        if (isLegacyBcryptHash(userRecord.passwordHash)) {
+          console.warn(
+            "[auth] Encountered a legacy bcrypt password hash. Prompting the user to reset their password."
+          );
+          return null;
+        }
+
+        const passwordMatches = await verifyPassword(password, userRecord.passwordHash);
 
         if (!passwordMatches) {
           return null;
+        }
+
+        if (needsRehash(userRecord.passwordHash)) {
+          const refreshedHash = await hashPassword(password);
+          await prisma.user.update({
+            where: { id: userRecord.id },
+            data: { passwordHash: refreshedHash }
+          });
         }
 
         const user: NextAuthUser & { handle?: string | null } = {

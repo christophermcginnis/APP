@@ -13,7 +13,7 @@ import type {
   CreatorSummary
 } from "@circlecast/core";
 import { TRPCError } from "@trpc/server";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "@circlecast/core";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 
@@ -719,7 +719,7 @@ export const profileRouter = router({
         });
       }
 
-      const passwordHash = await bcrypt.hash(input.password, 12);
+      const passwordHash = await hashPassword(input.password);
 
       const user = await ctx.prisma.user.create({
         data: {
