@@ -43,6 +43,24 @@ const packagesToRepair = [
       main: "./index.js",
     },
   },
+  {
+    matches: (entry) => entry.startsWith("array.prototype.findlastindex@"),
+    packageJsonPath: (entry) =>
+      path.join(
+        pnpmModulesRoot,
+        entry,
+        "node_modules",
+        "array.prototype.findlastindex",
+        "package.json",
+      ),
+    template: {
+      name: "array.prototype.findlastindex",
+      version: "1.2.6",
+      description:
+        "An ESnext spec-compliant Array.prototype.findLastIndex shim/polyfill/replacement that works as far down as ES3.",
+      main: "index.js",
+    },
+  },
 ];
 
 function ensureValidJson(targetPath, template) {
