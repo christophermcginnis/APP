@@ -4,8 +4,12 @@
   "version": "0.1.0",
   "packageManager": "pnpm@9.1.2",
   "scripts": {
+    "fix:deps": "node ./scripts/fix-dependency-package-jsons.mjs",
+    "predev": "pnpm run fix:deps",
     "dev": "pnpm -r --parallel --filter \"@circlecast/*\" dev",
+    "predev:web": "pnpm run fix:deps",
     "dev:web": "pnpm --filter @circlecast/web dev",
+    "predev:api": "pnpm run fix:deps",
     "dev:api": "pnpm --filter @circlecast/api dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
