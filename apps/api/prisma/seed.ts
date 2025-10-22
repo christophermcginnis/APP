@@ -1,7 +1,7 @@
 /// <reference types="node" />
 
 import { PrismaClient } from "@prisma/client";
-import bcrypt from "bcryptjs";
+import { hashPassword } from "@circlecast/core";
 
 const prisma = new PrismaClient();
 
@@ -14,7 +14,7 @@ async function main() {
   await prisma.circle.deleteMany();
   await prisma.user.deleteMany();
 
-  const passwordHash = await bcrypt.hash("letmein", 10);
+  const passwordHash = await hashPassword("letmein");
 
   const user = await prisma.user.create({
     data: {
