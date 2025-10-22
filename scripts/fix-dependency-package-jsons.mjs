@@ -44,6 +44,25 @@ const packagesToRepair = [
     },
   },
   {
+    matches: (entry) => entry.startsWith("next@"),
+    packageJsonPath: (entry) =>
+      path.join(
+        pnpmModulesRoot,
+        entry,
+        "node_modules",
+        "next",
+        "dist",
+        "compiled",
+        "semver",
+        "package.json",
+      ),
+    template: {
+      name: "semver",
+      version: "7.5.4",
+      main: "./index.js",
+    },
+  },
+  {
     matches: (entry) => entry.startsWith("array.prototype.findlastindex@"),
     packageJsonPath: (entry) =>
       path.join(
